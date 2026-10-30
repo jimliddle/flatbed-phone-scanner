@@ -29,7 +29,7 @@ The whole app is one HTML file (`index.html`, about 180 KB) with no external lib
 
 ## Installing on a phone
 
-Open  directly in your browser.
+Open  https://jimliddle.github.io/flatbed-phone-scanner/ directly in your browser.
 
 - **Android (Chrome or other):** ⋮ menu → **Install app** or **Add to Home screen**.
 - **iPhone (Safari):** Share → **Add to Home Screen**.
