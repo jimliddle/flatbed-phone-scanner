@@ -4,7 +4,7 @@ A document scanner that runs entirely in the browser. Point your phone at a lett
 
 The whole app is one HTML file (`index.html`, about 180 KB) with no external libraries. The other files in this repository let it install to a home screen and work offline.
 
-<img width="418.50" height="1024" alt="screenshot of app" src="https://github.com/user-attachments/assets/50bbbd9d-5672-48fe-be55-27191b01c00e" />
+<img width="209.250" height="512" alt="screenshot of app" src="https://github.com/user-attachments/assets/50bbbd9d-5672-48fe-be55-27191b01c00e" />
 
 
 ## Features
