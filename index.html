@@ -1,0 +1,3316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flatbed</title>
+<meta name="description" content="Document scanner that runs entirely in your browser.">
+<meta name="theme-color" content="#F2EFE9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111113" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flatbed">
+<link rel="manifest" id="manifest-link">
+<link rel="icon" id="favicon">
+<link rel="apple-touch-icon" id="touch-icon">
+<style>
+:root {
+  --bg: #F2EFE9; --surface: #FFFFFF; --surface-2: #F8F6F2; --ink: #16171B; --muted: #6D6C73; --line: #E3DED4;
+  --accent: #E2461E; --accent-ink: #FFFFFF; --accent-soft: rgba(226, 70, 30, .12); --danger: #C62828;
+  --shadow: 0 1px 2px rgba(30, 25, 15, .06), 0 6px 18px rgba(30, 25, 15, .08);
+  --radius: 14px;
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111113; --surface: #1B1B1F; --surface-2: #222227; --ink: #F1EFEA; --muted: #9C9AA2; --line: #2B2B31;
+    --accent: #FF6B40; --accent-soft: rgba(255, 107, 64, .16); --danger: #FF6B6B;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111113; --surface: #1B1B1F; --surface-2: #222227; --ink: #F1EFEA; --muted: #9C9AA2; --line: #2B2B31;
+  --accent: #FF6B40; --accent-soft: rgba(255, 107, 64, .16); --danger: #FF6B6B; color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
+body { overflow: hidden; overscroll-behavior: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { opacity: .4; cursor: default; }
+input, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+#app { position: fixed; inset: 0; }
+.view { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg); }
+.view.on { display: flex; }
+.view.dark { background: #000; color: #F3F1EC; color-scheme: dark; }
+
+/* Buttons */
+.icon-btn { width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; color: var(--ink); }
+.icon-btn:active { background: var(--accent-soft); }
+.icon-btn.light { color: #F3F1EC; }
+.icon-btn.light:active { background: rgba(255, 255, 255, .14); }
+.icon-btn.sm { width: 38px; height: 38px; }
+.icon-btn.toggle { font-weight: 700; font-size: 15px; border: 1.5px solid rgba(255, 255, 255, .35); width: 38px; height: 38px; }
+.icon-btn.toggle.on { background: #F3F1EC; color: #111; border-color: #F3F1EC; }
+.btn-ghost { padding: 8px 12px; border-radius: 10px; font-weight: 600; color: var(--accent); }
+.btn-ghost.light { color: #F3F1EC; }
+.btn-ghost:active { background: var(--accent-soft); }
+.btn-pill { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 650; }
+.btn-pill .ic { width: 18px; height: 18px; }
+.btn-pill:active { filter: brightness(.92); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 18px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 650; }
+.btn.secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn.block { width: 100%; }
+.btn-small { padding: 7px 12px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-weight: 650; font-size: 14px; }
+
+/* Library */
+.lib-top { display: flex; align-items: center; justify-content: space-between; padding: calc(10px + var(--sat)) 12px 4px 18px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 23px; letter-spacing: -.02em; }
+.brand-mark { width: 30px; height: 30px; display: block; }
+.brand-mark img { width: 100%; height: 100%; display: block; border-radius: 8px; }
+.top-actions { display: flex; align-items: center; gap: 2px; }
+.lib-search { margin: 6px 16px 10px; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--muted); }
+.lib-search .ic { width: 18px; height: 18px; }
+.lib-search input { flex: 1; border: 0; outline: 0; background: none; padding: 11px 0; color: var(--ink); min-width: 0; }
+.install-hint { margin: 0 16px 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.install-hint span { flex: 1; }
+.doc-grid { flex: 1; overflow-y: auto; padding: 4px 16px calc(110px + var(--sab)); display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 18px 14px; align-content: start; }
+.doc-card { position: relative; text-align: left; display: flex; flex-direction: column; gap: 8px; user-select: none; -webkit-user-select: none; }
+.doc-card .thumb { aspect-ratio: 3 / 4; border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; position: relative; }
+.doc-card .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.doc-card .stack { position: absolute; inset: 0; }
+.doc-card .t { font-weight: 620; font-size: 14.5px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.doc-card .s { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.doc-card .check { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .25); display: none; place-items: center; color: #fff; }
+.selecting .doc-card .check { display: grid; }
+.doc-card.sel .check { background: var(--accent); border-color: var(--accent); }
+.doc-card.sel .thumb { outline: 3px solid var(--accent); outline-offset: 2px; }
+.doc-card .check .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.empty { position: absolute; left: 0; right: 0; top: 30%; text-align: center; padding: 0 36px; color: var(--muted); pointer-events: none; }
+.empty h2 { color: var(--ink); font-size: 20px; margin: 18px 0 6px; }
+.empty p { margin: 0 auto; max-width: 320px; line-height: 1.5; font-size: 15px; }
+.empty-art { width: 92px; height: 112px; margin: 0 auto; border-radius: 6px; background: var(--surface); box-shadow: var(--shadow); position: relative; transform: rotate(-6deg); }
+.empty-art::before { content: ""; position: absolute; left: 14px; right: 14px; top: 20px; height: 54px; background: repeating-linear-gradient(var(--line) 0 4px, transparent 4px 11px); }
+.empty-art::after { content: ""; position: absolute; left: -10px; right: -10px; top: 50%; height: 3px; background: var(--accent); box-shadow: 0 0 12px var(--accent); border-radius: 2px; }
+.fab-row { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(16px + var(--sab)); display: flex; gap: 10px; justify-content: center; background: linear-gradient(transparent, var(--bg) 40%); }
+.fab { display: inline-flex; align-items: center; gap: 9px; padding: 15px 26px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 680; font-size: 16.5px; box-shadow: 0 6px 20px rgba(226, 70, 30, .35); }
+.fab-2 { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); border: 1px solid var(--line); }
+.fab:active { transform: scale(.98); }
+.selbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 10px calc(10px + var(--sab)); background: var(--surface); border-top: 1px solid var(--line); display: flex; align-items: center; gap: 4px; }
+.selcount { flex: 1; font-weight: 620; padding-left: 8px; font-size: 14px; }
+.sel-act { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; padding: 6px 8px; border-radius: 10px; min-width: 56px; }
+.sel-act.danger { color: var(--danger); }
+.sel-act:active { background: var(--accent-soft); }
+
+/* Camera */
+.cam-stage { position: absolute; inset: 0; }
+#cam-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+#cam-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cam-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+.cam-flash.go { opacity: .85; transition: none; }
+.cam-top { position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + var(--sat)) 8px 18px; display: flex; align-items: center; gap: 6px; background: linear-gradient(rgba(0, 0, 0, .65), transparent); }
+.cam-toggles { display: flex; gap: 6px; margin-left: auto; }
+.seg { display: flex; background: rgba(255, 255, 255, .12); border-radius: 999px; padding: 3px; margin: 0 auto; }
+.seg button { padding: 7px 11px; border-radius: 999px; font-size: 13.5px; font-weight: 600; color: rgba(255, 255, 255, .8); }
+.seg button.on { background: #F3F1EC; color: #111; }
+.cam-hint { position: absolute; left: 50%; top: calc(76px + var(--sat)); transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: rgba(0, 0, 0, .55); font-size: 14px; font-weight: 550; white-space: nowrap; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cam-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 22px calc(22px + var(--sab)); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: linear-gradient(transparent, rgba(0, 0, 0, .7)); }
+.cam-thumb { justify-self: start; width: 54px; height: 66px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, .85); overflow: visible; position: relative; background: rgba(255, 255, 255, .08); }
+.cam-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
+.cam-thumb img:not([src]) { visibility: hidden; }
+.cam-thumb .badge { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 700; display: grid; place-items: center; }
+.cam-thumb.empty { visibility: hidden; }
+.shutter { --p: 0; width: 78px; height: 78px; border-radius: 50%; position: relative; display: grid; place-items: center;
+  background: conic-gradient(var(--accent) calc(var(--p) * 360deg), rgba(255, 255, 255, .9) 0); }
+.shutter span { width: 66px; height: 66px; border-radius: 50%; background: #fff; border: 4px solid #000; transition: transform .1s; }
+.shutter:active span { transform: scale(.92); }
+.cam-done { justify-self: end; padding: 11px 18px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-weight: 650; }
+.cam-done.ready { background: var(--accent); }
+.cam-error { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; gap: 6px; background: #0d0d0f; }
+.cam-error h3 { margin: 0; font-size: 20px; }
+.cam-error p { color: #bbb; max-width: 360px; line-height: 1.5; margin: 0 0 6px; }
+.cam-error .btn { max-width: 340px; }
+.cam-error .btn + .btn { margin-top: 4px; }
+.cam-error .btn.secondary { background: rgba(255, 255, 255, .1); color: #F3F1EC; border-color: rgba(255, 255, 255, .18); }
+.cam-error-close { position: absolute; top: calc(8px + var(--sat)); left: 8px; }
+.cam-steps { text-align: left; color: #ddd; max-width: 340px; margin: 0 0 12px; padding-left: 22px; line-height: 1.5; font-size: 14.5px; }
+.cam-steps li + li { margin-top: 4px; }
+
+/* Bars and stages (crop, enhance, viewer) */
+.bar { display: flex; align-items: center; gap: 6px; padding: calc(6px + var(--sat)) 10px 6px 6px; min-height: 56px; }
+.bar h1 { flex: 1; font-size: 17px; font-weight: 650; margin: 0 0 0 4px; }
+.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; }
+#crop-img, #enh-img, #vw-img { position: absolute; display: block; user-select: none; -webkit-user-select: none; pointer-events: none; }
+#enh-img, #vw-img { inset: 14px; width: calc(100% - 28px); height: calc(100% - 28px); object-fit: contain; }
+#crop-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.loupe { position: absolute; width: 124px; height: 124px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 18px rgba(0, 0, 0, .5); pointer-events: none; display: none; background: #000; }
+.stage-busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .35); }
+.tools { display: flex; justify-content: space-around; align-items: center; gap: 4px; padding: 8px 8px calc(10px + var(--sab)); }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 550; padding: 7px 10px; border-radius: 12px; min-width: 64px; color: #E9E6E0; }
+.tool:active, .tool.on { background: rgba(255, 255, 255, .12); }
+.article-bar { justify-content: flex-end; gap: 10px; padding-left: 16px; }
+.article-bar span { flex: 1; font-size: 14px; color: #ddd; }
+
+.adjust { display: flex; align-items: center; gap: 10px; padding: 8px 12px 0 16px; }
+.adjust label { font-size: 13px; color: #bbb; width: 74px; }
+.adjust input[type=range] { flex: 1; accent-color: var(--accent); }
+.adjust.off label, .adjust.off input { opacity: .3; pointer-events: none; }
+.filters { display: flex; gap: 10px; overflow-x: auto; padding: 12px 14px calc(12px + var(--sab)); scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.filter { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #ccc; }
+.filter .fthumb { width: 64px; height: 82px; border-radius: 8px; background: #222; overflow: hidden; border: 2px solid transparent; }
+.filter .fthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.filter.on { color: #fff; }
+.filter.on .fthumb { border-color: var(--accent); }
+.filter small { font-weight: 500; color: #999; font-size: 10.5px; margin-top: -4px; }
+
+/* Document view */
+.doc-top { display: flex; align-items: center; gap: 4px; padding: calc(6px + var(--sat)) 6px 0; }
+.title-input { flex: 1; min-width: 0; border: 0; background: none; font-size: 21px; font-weight: 720; letter-spacing: -.01em; padding: 8px 6px; border-radius: 8px; outline: none; }
+.title-input:focus { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.doc-sub { padding: 0 18px 10px; color: var(--muted); font-size: 13.5px; }
+.page-grid { flex: 1; overflow-y: auto; padding: 4px 16px calc(100px + var(--sab)); display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px 12px; align-content: start; }
+.pg { position: relative; aspect-ratio: 3 / 4; border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.pg img { width: 100%; height: 100%; object-fit: contain; display: block; background: var(--surface-2); pointer-events: none; }
+.pg .n { position: absolute; left: 6px; bottom: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.pg.drag { opacity: .35; }
+.pg.ghost { position: fixed; z-index: 50; pointer-events: none; opacity: .95; box-shadow: 0 14px 34px rgba(0, 0, 0, .35); transform: scale(1.05); }
+.pg.saving::after { content: ""; position: absolute; inset: 0; background: var(--surface-2); }
+.pg-add { aspect-ratio: 3 / 4; border-radius: 8px; border: 2px dashed var(--line); display: grid; place-items: center; color: var(--muted); }
+.doc-actions { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 10px 12px calc(12px + var(--sab)); background: var(--surface); border-top: 1px solid var(--line); }
+.act { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; padding: 8px 4px; border-radius: 12px; }
+.act:active { background: var(--accent-soft); }
+.act.primary { background: var(--accent); color: var(--accent-ink); }
+
+/* Sheets */
+.sheet-wrap { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); animation: fade .2s; }
+.sheet { position: relative; width: 100%; max-width: 560px; max-height: 88dvh; overflow-y: auto; background: var(--surface); color: var(--ink); border-radius: 20px 20px 0 0; padding: 8px 18px calc(18px + var(--sab)); animation: up .22s cubic-bezier(.2, .8, .2, 1); }
+.grip { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+.sheet h2 { font-size: 19px; margin: 4px 0 4px; }
+.sheet .lede { color: var(--muted); font-size: 14px; margin: 0 0 14px; line-height: 1.45; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row .lbl { flex: 1; }
+.row .lbl b { display: block; font-weight: 600; font-size: 15px; }
+.row .lbl small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.35; }
+.row select, .row input[type=text], .row input[type=password] { background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; max-width: 52%; }
+.row input[type=range] { width: 42%; accent-color: var(--accent); }
+.switch { position: relative; width: 48px; height: 28px; flex: none; }
+.switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 14px; background: var(--line); transition: .15s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: .15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.sheet-section { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 2px; }
+.sheet .btns { display: flex; gap: 10px; margin-top: 16px; }
+.sheet .btns .btn { flex: 1; }
+.segs { display: flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; padding: 3px; margin: 8px 0 4px; }
+.segs button { flex: 1; padding: 9px; border-radius: 8px; font-weight: 620; font-size: 14px; color: var(--muted); }
+.segs button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.pw { display: flex; gap: 8px; margin-top: 10px; }
+.pw input { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+.pw .icon-btn { width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 10px; }
+.note { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-top: 8px; }
+.menu-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 16px; text-align: left; }
+.menu-item:last-child { border-bottom: 0; }
+.menu-item.danger { color: var(--danger); }
+.meter { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 6px; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+
+/* Busy, toast */
+.busy { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0, 0, 0, .4); }
+.busy-card { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; max-width: 80vw; }
+.spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(128, 128, 128, .3); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+.toast { position: fixed; left: 50%; bottom: calc(96px + var(--sab)); transform: translateX(-50%); z-index: 70; background: #222226; color: #fff; padding: 11px 16px; border-radius: 12px; font-size: 14.5px; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px); animation: up .2s; }
+.toast button { color: #FF9A7A; font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes up { from { transform: translateY(24px); opacity: 0; } }
+.toast { animation-name: toastin; }
+@keyframes toastin { from { opacity: 0; transform: translate(-50%, 16px); } }
+@keyframes fade { from { opacity: 0; } }
+
+@media (min-width: 700px) {
+  .doc-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); padding-left: 28px; padding-right: 28px; }
+  .page-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); padding-left: 28px; padding-right: 28px; }
+  .sheet { border-radius: 20px; margin-bottom: 24px; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Library -->
+<section class="view on" id="v-library">
+  <header class="lib-top">
+    <div class="brand"><span class="brand-mark" id="brand-mark"></span><span>Flatbed</span></div>
+    <div class="top-actions">
+      <button class="btn-ghost" id="lib-select">Select</button>
+      <button class="icon-btn" id="lib-settings" aria-label="Settings" data-icon="gear"></button>
+    </div>
+  </header>
+  <div class="lib-search">
+    <span data-icon="search"></span>
+    <input id="lib-q" type="search" placeholder="Search scans" autocomplete="off">
+  </div>
+  <div class="install-hint" id="install-hint" hidden>
+    <span>Install Flatbed so it opens like an app and works offline.</span>
+    <button class="btn-small" id="install-go">Install</button>
+  </div>
+  <main class="doc-grid" id="doc-grid"></main>
+  <div class="empty" id="lib-empty" hidden>
+    <div class="empty-art"></div>
+    <h2>No scans yet</h2>
+    <p>Lay a letter, receipt or newspaper page on a table with some contrast around it, then tap Scan.</p>
+  </div>
+  <div class="fab-row" id="lib-fabs">
+    <button class="fab fab-2" id="lib-import"><span data-icon="image"></span>Import</button>
+    <button class="fab" id="lib-scan"><span data-icon="camera"></span>Scan</button>
+  </div>
+  <div class="selbar" id="lib-selbar" hidden>
+    <span class="selcount" id="lib-selcount">0 selected</span>
+    <button class="sel-act" id="sel-share"><span data-icon="share"></span>Share</button>
+    <button class="sel-act" id="sel-export"><span data-icon="download"></span>Export</button>
+    <button class="sel-act" id="sel-merge"><span data-icon="layers"></span>Merge</button>
+    <button class="sel-act danger" id="sel-delete"><span data-icon="trash"></span>Delete</button>
+  </div>
+</section>
+
+<!-- Camera -->
+<section class="view dark" id="v-camera">
+  <div class="cam-stage" id="cam-stage">
+    <video id="cam-video" playsinline muted autoplay></video>
+    <canvas id="cam-overlay"></canvas>
+    <div class="cam-flash" id="cam-flash"></div>
+  </div>
+  <div class="cam-top">
+    <button class="icon-btn light" id="cam-close" aria-label="Close camera" data-icon="close"></button>
+    <div class="seg" id="cam-mode" role="tablist">
+      <button data-m="doc">Document</button>
+      <button data-m="article">Article</button>
+      <button data-m="photo">Photo</button>
+    </div>
+    <div class="cam-toggles">
+      <button class="icon-btn light" id="cam-torch" aria-label="Torch" data-icon="flash" hidden></button>
+      <button class="icon-btn light toggle" id="cam-auto" aria-label="Auto capture" title="Auto capture">A</button>
+      <button class="icon-btn light toggle" id="cam-batch" aria-label="Batch mode" title="Batch: skip review" data-icon="layers"></button>
+    </div>
+  </div>
+  <div class="cam-hint" id="cam-hint">Starting camera…</div>
+  <div class="cam-bottom">
+    <button class="cam-thumb" id="cam-thumb" aria-label="Pages in this scan"><img alt=""><span class="badge" id="cam-count">0</span></button>
+    <button class="shutter" id="cam-shutter" aria-label="Capture"><span></span></button>
+    <button class="cam-done" id="cam-done">Done</button>
+  </div>
+  <div class="cam-error" id="cam-error" hidden>
+    <button class="icon-btn light cam-error-close" id="cam-error-close" aria-label="Close" data-icon="close"></button>
+    <h3 id="cam-error-title">Camera unavailable</h3>
+    <p id="cam-error-msg"></p>
+    <ol class="cam-steps" id="cam-error-steps" hidden></ol>
+    <button class="btn block" id="cam-error-native"><span data-icon="camera"></span><span id="cam-native-label">Use the phone’s camera app</span></button>
+    <button class="btn secondary block" id="cam-error-done" hidden>Done</button>
+    <button class="btn secondary block" id="cam-error-open" hidden>Open Flatbed in the browser</button>
+    <button class="btn secondary block" id="cam-error-retry">Try again</button>
+    <button class="btn-ghost light" id="cam-error-import">Import photos from the gallery</button>
+  </div>
+</section>
+
+<!-- Crop -->
+<section class="view dark" id="v-crop">
+  <header class="bar">
+    <button class="icon-btn light" id="crop-back" aria-label="Back" data-icon="back"></button>
+    <h1 id="crop-title">Adjust corners</h1>
+    <button class="btn-pill" id="crop-next">Next<span data-icon="next"></span></button>
+  </header>
+  <div class="stage" id="crop-stage">
+    <img id="crop-img" alt="">
+    <svg id="crop-svg"></svg>
+    <canvas id="crop-loupe" class="loupe"></canvas>
+    <div class="stage-busy" id="crop-busy" hidden><span class="spin"></span></div>
+  </div>
+  <div class="tools" id="crop-tools">
+    <button class="tool" id="crop-auto"><span data-icon="auto"></span>Auto</button>
+    <button class="tool" id="crop-full"><span data-icon="expand"></span>Whole photo</button>
+    <button class="tool" id="crop-article"><span data-icon="article"></span>Article</button>
+  </div>
+  <div class="tools article-bar" id="crop-artbar" hidden>
+    <span id="crop-arthint">Tap the parts of the article</span>
+    <button class="btn-ghost light" id="crop-artcancel">Cancel</button>
+    <button class="btn-pill" id="crop-artuse">Use</button>
+  </div>
+</section>
+
+<!-- Enhance -->
+<section class="view dark" id="v-enhance">
+  <header class="bar">
+    <button class="icon-btn light" id="enh-back" aria-label="Back to crop" data-icon="back"></button>
+    <h1>Look</h1>
+    <button class="btn-pill" id="enh-save"><span data-icon="check"></span>Save</button>
+  </header>
+  <div class="stage" id="enh-stage">
+    <img id="enh-img" alt="">
+    <div class="stage-busy" id="enh-busy"><span class="spin"></span></div>
+  </div>
+  <div class="adjust" id="enh-adjust">
+    <label for="enh-range" id="enh-range-label">Contrast</label>
+    <input type="range" id="enh-range" min="-1" max="1" step="0.05" value="0">
+    <button class="icon-btn light sm" id="enh-rotl" aria-label="Rotate left" data-icon="rotL"></button>
+    <button class="icon-btn light sm" id="enh-rotr" aria-label="Rotate right" data-icon="rotR"></button>
+  </div>
+  <div class="filters" id="enh-filters"></div>
+</section>
+
+<!-- Document -->
+<section class="view" id="v-doc">
+  <header class="doc-top">
+    <button class="icon-btn" id="doc-back" aria-label="Back" data-icon="back"></button>
+    <input id="doc-title" class="title-input" aria-label="Document name" autocomplete="off">
+    <button class="icon-btn" id="doc-more" aria-label="More" data-icon="more"></button>
+  </header>
+  <div class="doc-sub" id="doc-sub"></div>
+  <main class="page-grid" id="page-grid"></main>
+  <div class="doc-actions">
+    <button class="act" id="doc-add"><span data-icon="camera"></span>Add</button>
+    <button class="act" id="doc-import"><span data-icon="image"></span>Import</button>
+    <button class="act" id="doc-share"><span data-icon="share"></span>Share</button>
+    <button class="act primary" id="doc-export"><span data-icon="download"></span>Export</button>
+  </div>
+</section>
+
+<!-- Page viewer -->
+<section class="view dark" id="v-viewer">
+  <header class="bar">
+    <button class="icon-btn light" id="vw-back" aria-label="Back" data-icon="back"></button>
+    <h1 id="vw-title">Page</h1>
+    <button class="icon-btn light" id="vw-delete" aria-label="Delete page" data-icon="trash"></button>
+  </header>
+  <div class="stage" id="vw-stage"><img id="vw-img" alt=""></div>
+  <div class="tools">
+    <button class="tool" id="vw-edit"><span data-icon="crop"></span>Edit</button>
+    <button class="tool" id="vw-rot"><span data-icon="rotR"></span>Rotate</button>
+    <button class="tool" id="vw-left"><span data-icon="moveL"></span>Earlier</button>
+    <button class="tool" id="vw-right"><span data-icon="moveR"></span>Later</button>
+    <button class="tool" id="vw-share"><span data-icon="share"></span>Share</button>
+  </div>
+</section>
+
+</div>
+
+<div class="sheet-wrap" id="sheet-wrap" hidden>
+  <div class="sheet-backdrop" id="sheet-backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grip"></div><div id="sheet-body"></div></div>
+</div>
+<div class="busy" id="busy" hidden><div class="busy-card"><span class="spin"></span><span id="busy-text">Working…</span></div></div>
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="file-in" accept="image/*" multiple hidden>
+<input type="file" id="native-cam" accept="image/*" capture="environment" hidden>
+<input type="file" id="restore-in" accept=".flatbed,application/octet-stream" hidden>
+
+<script id="fb-core">
+/* Flatbed core: document detection, rectification, enhancement and file writers.
+   Pure JS with no DOM. Runs in the page, inside the Worker, and in Node for tests. */
+var FB = (function () {
+'use strict';
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const makeImg = (w, h) => ({ w, h, d: new Uint8ClampedArray(w * h * 4) });
+
+/* ------------------------------------------------------------------ */
+/* Resampling and filters                                              */
+/* ------------------------------------------------------------------ */
+
+function resizeArea(img, maxSide) {
+  const { w, h, d } = img;
+  const s = Math.min(1, maxSide / Math.max(w, h));
+  if (s >= 1) return img;
+  const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
+  const out = makeImg(W, H), o = out.d;
+  const fx = w / W, fy = h / H;
+  const xs0 = new Int32Array(W), xs1 = new Int32Array(W);
+  for (let X = 0; X < W; X++) { xs0[X] = Math.floor(X * fx); xs1[X] = Math.max(xs0[X] + 1, Math.min(w, Math.floor((X + 1) * fx))); }
+  const acc = new Float64Array(W * 3), cnt = new Float64Array(W);
+  for (let Y = 0; Y < H; Y++) {
+    const y0 = Math.floor(Y * fy), y1 = Math.max(y0 + 1, Math.min(h, Math.floor((Y + 1) * fy)));
+    acc.fill(0); cnt.fill(0);
+    for (let y = y0; y < y1; y++) {
+      const row = y * w;
+      for (let X = 0; X < W; X++) {
+        let r = 0, g = 0, b = 0;
+        const a0 = xs0[X], a1 = xs1[X];
+        for (let x = a0, i = (row + a0) * 4; x < a1; x++, i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+        acc[X * 3] += r; acc[X * 3 + 1] += g; acc[X * 3 + 2] += b; cnt[X] += a1 - a0;
+      }
+    }
+    for (let X = 0, j = Y * W * 4; X < W; X++, j += 4) {
+      const n = cnt[X]; o[j] = acc[X * 3] / n; o[j + 1] = acc[X * 3 + 1] / n; o[j + 2] = acc[X * 3 + 2] / n; o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+
+function boxH(src, dst, w, h, r) {
+  const k = 1 / (2 * r + 1);
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    let s = src[o] * (r + 1);
+    for (let x = 1; x <= r; x++) s += src[o + Math.min(x, w - 1)];
+    for (let x = 0; x < w; x++) {
+      dst[o + x] = s * k;
+      s += src[o + Math.min(x + r + 1, w - 1)] - src[o + Math.max(x - r, 0)];
+    }
+  }
+}
+function boxV(src, dst, w, h, r) {
+  const k = 1 / (2 * r + 1);
+  for (let x = 0; x < w; x++) {
+    let s = src[x] * (r + 1);
+    for (let y = 1; y <= r; y++) s += src[Math.min(y, h - 1) * w + x];
+    for (let y = 0; y < h; y++) {
+      dst[y * w + x] = s * k;
+      s += src[Math.min(y + r + 1, h - 1) * w + x] - src[Math.max(y - r, 0) * w + x];
+    }
+  }
+}
+function boxBlur(src, w, h, r) {
+  r = Math.round(r);
+  if (r < 1) return Float32Array.from(src);
+  const t = new Float32Array(w * h), o = new Float32Array(w * h);
+  boxH(src, t, w, h, r); boxV(t, o, w, h, r);
+  return o;
+}
+function gaussBlur(src, w, h, sigma) {
+  if (sigma < 0.5) return Float32Array.from(src);
+  const n = 3, wIdeal = Math.sqrt(12 * sigma * sigma / n + 1);
+  let wl = Math.floor(wIdeal); if (wl % 2 === 0) wl--;
+  const m = Math.round((12 * sigma * sigma - n * wl * wl - 4 * n * wl - 3 * n) / (-4 * wl - 4));
+  let a = src;
+  for (let i = 0; i < n; i++) a = boxBlur(a, w, h, ((i < m ? wl : wl + 2) - 1) / 2);
+  return a;
+}
+// Separable min/max filter (square window of radius r), van Herk / Gil-Werman:
+// constant cost per pixel whatever the radius.
+function morph1D(src, n, r, isMax, P, G, Hh, out) {
+  const k = 2 * r + 1, m = n + 2 * r;
+  for (let i = 0; i < m; i++) P[i] = src[i < r ? 0 : i - r >= n ? n - 1 : i - r];
+  for (let i = 0; i < m; i++) {
+    if (i % k === 0) G[i] = P[i];
+    else G[i] = isMax ? (P[i] > G[i - 1] ? P[i] : G[i - 1]) : (P[i] < G[i - 1] ? P[i] : G[i - 1]);
+  }
+  for (let i = m - 1; i >= 0; i--) {
+    if (i === m - 1 || (i + 1) % k === 0) Hh[i] = P[i];
+    else Hh[i] = isMax ? (P[i] > Hh[i + 1] ? P[i] : Hh[i + 1]) : (P[i] < Hh[i + 1] ? P[i] : Hh[i + 1]);
+  }
+  for (let x = 0; x < n; x++) {
+    const a = Hh[x], b = G[x + k - 1];
+    out[x] = isMax ? (a > b ? a : b) : (a < b ? a : b);
+  }
+}
+function morph(src, w, h, r, isMax) {
+  if (r < 1) return Float32Array.from(src);
+  const t = new Float32Array(w * h), o = new Float32Array(w * h);
+  const P = new Float32Array(w + 2 * r), G = new Float32Array(w + 2 * r), Hh = new Float32Array(w + 2 * r), res = new Float32Array(w);
+  for (let y = 0; y < h; y++) {
+    morph1D(src.subarray(y * w, y * w + w), w, r, isMax, P, G, Hh, res);
+    t.set(res, y * w);
+  }
+  // Vertical pass on whole rows at a time so memory access stays sequential.
+  const k = 2 * r + 1, m = h + 2 * r;
+  const GR = new Float32Array(m * w), HR = new Float32Array(m * w);
+  const rowOf = i => (i < r ? 0 : i - r >= h ? h - 1 : i - r) * w;
+  for (let i = 0; i < m; i++) {
+    const s0 = rowOf(i), g = i * w;
+    if (i % k === 0) GR.set(t.subarray(s0, s0 + w), g);
+    else { const p = g - w; for (let x = 0; x < w; x++) { const a = t[s0 + x], b = GR[p + x]; GR[g + x] = isMax ? (a > b ? a : b) : (a < b ? a : b); } }
+  }
+  for (let i = m - 1; i >= 0; i--) {
+    const s0 = rowOf(i), g = i * w;
+    if (i === m - 1 || (i + 1) % k === 0) HR.set(t.subarray(s0, s0 + w), g);
+    else { const p = g + w; for (let x = 0; x < w; x++) { const a = t[s0 + x], b = HR[p + x]; HR[g + x] = isMax ? (a > b ? a : b) : (a < b ? a : b); } }
+  }
+  for (let y = 0; y < h; y++) {
+    const a0 = y * w, b0 = (y + k - 1) * w, o0 = y * w;
+    for (let x = 0; x < w; x++) { const a = HR[a0 + x], b = GR[b0 + x]; o[o0 + x] = isMax ? (a > b ? a : b) : (a < b ? a : b); }
+  }
+  return o;
+}
+function sobel(a, w, h) {
+  const gx = new Float32Array(w * h), gy = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1, i = y * w + 1; x < w - 1; x++, i++) {
+      const tl = a[i - w - 1], t = a[i - w], tr = a[i - w + 1], l = a[i - 1], r = a[i + 1], bl = a[i + w - 1], b = a[i + w], br = a[i + w + 1];
+      gx[i] = (tr + 2 * r + br) - (tl + 2 * l + bl);
+      gy[i] = (bl + 2 * b + br) - (tl + 2 * t + tr);
+    }
+  }
+  return { gx, gy };
+}
+function pct(arr, p) {
+  let mx = 0;
+  for (let i = 0; i < arr.length; i++) if (arr[i] > mx) mx = arr[i];
+  if (!mx) return 0;
+  const B = 4096, hist = new Uint32Array(B), k = (B - 1) / mx;
+  for (let i = 0; i < arr.length; i++) hist[(arr[i] * k) | 0]++;
+  const target = p * arr.length;
+  let acc = 0;
+  for (let b = 0; b < B; b++) { acc += hist[b]; if (acc >= target) return b / k; }
+  return mx;
+}
+
+/* ------------------------------------------------------------------ */
+/* Geometry                                                            */
+/* ------------------------------------------------------------------ */
+
+function polyArea(q) {
+  let s = 0;
+  for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; s += a[0] * b[1] - b[0] * a[1]; }
+  return Math.abs(s) / 2;
+}
+function isConvex(q) {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4];
+    const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(cr) < 1e-9) return false;
+    const s = cr > 0 ? 1 : -1;
+    if (!sign) sign = s; else if (s !== sign) return false;
+  }
+  return true;
+}
+function pointInQuad(x, y, q) {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4];
+    const cr = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+    const s = cr >= 0 ? 1 : -1;
+    if (!sign) sign = s; else if (s !== sign) return false;
+  }
+  return true;
+}
+// Clockwise on screen (y down), starting at the top-left corner.
+function orderQuad(pts) {
+  const cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4;
+  const cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
+  const s = pts.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  let k = 0, best = Infinity;
+  for (let i = 0; i < 4; i++) { const v = s[i][0] + s[i][1]; if (v < best) { best = v; k = i; } }
+  return [s[k], s[(k + 1) % 4], s[(k + 2) % 4], s[(k + 3) % 4]].map(p => [p[0], p[1]]);
+}
+function convexHull(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  up.pop(); lo.pop();
+  return lo.concat(up);
+}
+function simplifyPoly(poly, maxN) {
+  const p = poly.slice();
+  while (p.length > maxN) {
+    let mi = 0, ma = Infinity;
+    for (let i = 0; i < p.length; i++) {
+      const a = p[(i - 1 + p.length) % p.length], b = p[i], c = p[(i + 1) % p.length];
+      const ar = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]));
+      if (ar < ma) { ma = ar; mi = i; }
+    }
+    p.splice(mi, 1);
+  }
+  return p;
+}
+function maxAreaQuad(h) {
+  const n = h.length;
+  if (n < 4) return null;
+  let best = null, ba = -1;
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) for (let l = k + 1; l < n; l++) {
+    const q = [h[i], h[j], h[k], h[l]], a = polyArea(q);
+    if (a > ba) { ba = a; best = q; }
+  }
+  return best;
+}
+function solveLinear(A, b) {
+  const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (Math.abs(M[p][c]) < 1e-12) return null;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  return M.map((r, i) => r[n] / r[i]);
+}
+// Homography mapping src[i] -> dst[i]; returns 9 coefficients (row-major).
+function homography(src, dst) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  const h = solveLinear(A, b);
+  return h ? h.concat([1]) : null;
+}
+function applyH(H, x, y) {
+  const z = H[6] * x + H[7] * y + H[8];
+  return [(H[0] * x + H[1] * y + H[2]) / z, (H[3] * x + H[4] * y + H[5]) / z];
+}
+function maxCornerDist(a, b) {
+  let m = 0;
+  for (let i = 0; i < 4; i++) m = Math.max(m, Math.hypot(a[i][0] - b[i][0], a[i][1] - b[i][1]));
+  return m;
+}
+
+/* ------------------------------------------------------------------ */
+/* Document detection                                                  */
+/* ------------------------------------------------------------------ */
+
+// Closing (max then min) wipes out dark text so only large shapes like the
+// sheet itself leave edges; a small blur then removes sensor noise.
+function prep(img) {
+  const { w, h, d } = img, N = w * h, S = Math.max(w, h);
+  const r = Math.max(2, Math.round(S / 150));
+  const sig = Math.max(1, S / 400);
+  const C = [0, 1, 2].map(c => {
+    const a = new Float32Array(N);
+    for (let i = 0, j = c; i < N; i++, j += 4) a[i] = d[j];
+    return gaussBlur(morph(morph(a, w, h, r, true), w, h, r, false), w, h, sig);
+  });
+  const L = new Float32Array(N);
+  for (let i = 0; i < N; i++) L[i] = 0.299 * C[0][i] + 0.587 * C[1][i] + 0.114 * C[2][i];
+  const gx = new Float32Array(N), gy = new Float32Array(N), mag = new Float32Array(N);
+  for (let c = 0; c < 3; c++) {
+    const s = sobel(C[c], w, h);
+    for (let i = 0; i < N; i++) {
+      const m = s.gx[i] * s.gx[i] + s.gy[i] * s.gy[i];
+      if (m > mag[i]) { mag[i] = m; gx[i] = s.gx[i]; gy[i] = s.gy[i]; }
+    }
+  }
+  for (let i = 0; i < N; i++) mag[i] = Math.sqrt(mag[i]);
+  const p = pct(mag, 0.995);
+  const hi = Math.max(28, 0.22 * p), lo = hi * 0.45;
+  return { w, h, C, L, gx, gy, mag, hi, lo, diag: Math.hypot(w, h), off: Math.max(3, Math.round(S / 110)) };
+}
+
+function cannyEdges(ctx) {
+  const { w, h, gx, gy, mag, hi, lo } = ctx, N = w * h;
+  const nms = new Uint8Array(N);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1, i = y * w + 1; x < w - 1; x++, i++) {
+      const m = mag[i];
+      if (m < lo) continue;
+      const ax = Math.abs(gx[i]), ay = Math.abs(gy[i]);
+      let m1, m2;
+      if (ay <= ax * 0.4142) { m1 = mag[i - 1]; m2 = mag[i + 1]; }
+      else if (ax <= ay * 0.4142) { m1 = mag[i - w]; m2 = mag[i + w]; }
+      else if ((gx[i] > 0) === (gy[i] > 0)) { m1 = mag[i - w - 1]; m2 = mag[i + w + 1]; }
+      else { m1 = mag[i - w + 1]; m2 = mag[i + w - 1]; }
+      if (m >= m1 && m > m2) nms[i] = m >= hi ? 2 : 1;
+    }
+  }
+  const out = new Uint8Array(N), st = [];
+  for (let i = 0; i < N; i++) if (nms[i] === 2) { out[i] = 1; st.push(i); }
+  while (st.length) {
+    const i = st.pop();
+    for (const o of [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1]) {
+      const j = i + o;
+      if (j >= 0 && j < N && nms[j] && !out[j]) { out[j] = 1; st.push(j); }
+    }
+  }
+  return out;
+}
+
+// Hough transform where each edge pixel only votes near its own gradient angle.
+function houghLines(ctx, E, maxLines) {
+  const { w, h, gx, gy } = ctx;
+  const D = Math.ceil(Math.hypot(w, h)), NR = 2 * D + 1, T = 180;
+  const acc = new Float32Array(T * NR);
+  const COS = new Float32Array(T), SIN = new Float32Array(T);
+  for (let t = 0; t < T; t++) { COS[t] = Math.cos(t * Math.PI / 180); SIN[t] = Math.sin(t * Math.PI / 180); }
+  const wts = [0.45, 0.8, 1, 0.8, 0.45];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0, i = y * w; x < w; x++, i++) {
+      if (!E[i]) continue;
+      let a = Math.atan2(gy[i], gx[i]);
+      if (a < 0) a += Math.PI;
+      const t0 = Math.round(a * 180 / Math.PI) % 180;
+      for (let k = -2; k <= 2; k++) {
+        const t = (t0 + k + 180) % 180;
+        acc[t * NR + Math.round(x * COS[t] + y * SIN[t]) + D] += wts[k + 2];
+      }
+    }
+  }
+  const get = (t, ri) => {
+    if (t < 0) { t += 180; ri = 2 * D - ri; } else if (t >= 180) { t -= 180; ri = 2 * D - ri; }
+    return ri < 0 || ri >= NR ? 0 : acc[t * NR + ri];
+  };
+  const minV = 0.09 * Math.min(w, h);
+  const peaks = [];
+  for (let t = 0; t < T; t++) {
+    for (let ri = 0; ri < NR; ri++) {
+      const v = acc[t * NR + ri];
+      if (v < minV) continue;
+      let isMax = true;
+      for (let dt = -3; dt <= 3 && isMax; dt++) for (let dr = -5; dr <= 5; dr++) {
+        if (!dt && !dr) continue;
+        const u = get(t + dt, ri + dr);
+        if (u > v || (u === v && (dt < 0 || (dt === 0 && dr < 0)))) { isMax = false; break; }
+      }
+      if (isMax) peaks.push({ t, rho: ri - D, v });
+    }
+  }
+  peaks.sort((a, b) => b.v - a.v);
+  const out = [];
+  const tolR = Math.max(8, 0.02 * D);
+  for (const p of peaks) {
+    if (out.some(q => { let dt = Math.abs(p.t - q.t), r2 = q.rho; if (dt > 90) { dt = 180 - dt; r2 = -r2; } return dt < 6 && Math.abs(p.rho - r2) < tolR; })) continue;
+    p.theta = p.t * Math.PI / 180;
+    out.push(p);
+    if (out.length >= maxLines) break;
+  }
+  return out;
+}
+function intersect(a, b) {
+  const c1 = Math.cos(a.theta), s1 = Math.sin(a.theta), c2 = Math.cos(b.theta), s2 = Math.sin(b.theta);
+  const det = c1 * s2 - s1 * c2;
+  if (Math.abs(det) < 1e-4) return null;
+  return [(a.rho * s2 - s1 * b.rho) / det, (c1 * b.rho - a.rho * c2) / det];
+}
+const angDiff = (a, b) => { let d = Math.abs(a - b) % 180; return d > 90 ? 180 - d : d; };
+
+const QB = 0.42; // quality credited to a side that runs along the image border
+
+function onBorder(P, Q, w, h) {
+  const t = 2.5;
+  return (Math.abs(P[0]) < t && Math.abs(Q[0]) < t) || (Math.abs(P[0] - (w - 1)) < t && Math.abs(Q[0] - (w - 1)) < t) ||
+         (Math.abs(P[1]) < t && Math.abs(Q[1]) < t) || (Math.abs(P[1] - (h - 1)) < t && Math.abs(Q[1] - (h - 1)) < t);
+}
+
+// How strongly the outline of q is backed by real step edges in the image.
+function scoreQuad(ctx, q, step) {
+  const { w, h, C, L, gx, gy, off, lo } = ctx;
+  const far = Math.max(3 * off, 0.07 * Math.min(w, h));
+  const af = polyArea(q) / (w * h);
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  let tot = 0, totLen = 0, minQ = 1;
+  const signs = [];
+  for (let s = 0; s < 4; s++) {
+    const P = q[s], Q = q[(s + 1) % 4];
+    const dx = Q[0] - P[0], dy = Q[1] - P[1], len = Math.hypot(dx, dy);
+    if (len < 1) return 0;
+    const tx = dx / len, ty = dy / len;
+    let nx = ty, ny = -tx;
+    if (((P[0] + Q[0]) / 2 - cx) * nx + ((P[1] + Q[1]) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny; }
+    let qi;
+    if (onBorder(P, Q, w, h)) qi = QB;
+    else {
+      let total = 0, inF = 0, sup = 0, stepSum = 0, sg = 0, farN = 0, farSame = 0;
+      for (let u = len * 0.04; u <= len * 0.96; u += step) {
+        total++;
+        const x = P[0] + tx * u, y = P[1] + ty * u;
+        const xo = x + nx * off, yo = y + ny * off, xi = x - nx * off, yi = y - ny * off;
+        if (xo < 1 || yo < 1 || xo > w - 2 || yo > h - 2 || xi < 1 || yi < 1 || xi > w - 2 || yi > h - 2) continue;
+        inF++;
+        let best = 0;
+        for (let k = -2; k <= 2; k++) {
+          const xx = (x + nx * k + 0.5) | 0, yy = (y + ny * k + 0.5) | 0;
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+          const j = yy * w + xx, dd = Math.abs(gx[j] * nx + gy[j] * ny);
+          if (dd > best) best = dd;
+        }
+        if (best >= lo) sup++;
+        const jo = ((yo + 0.5) | 0) * w + ((xo + 0.5) | 0), ji = ((yi + 0.5) | 0) * w + ((xi + 0.5) | 0);
+        const dR = C[0][ji] - C[0][jo], dG = C[1][ji] - C[1][jo], dB = C[2][ji] - C[2][jo];
+        stepSum += Math.sqrt((dR * dR + dG * dG + dB * dB) / 3);
+        sg += L[ji] - L[jo];
+        // A real sheet edge has table beyond it. If the far side looks like the
+        // inside again, this is a band or photo edge printed on the page.
+        const xf = x + nx * far, yf = y + ny * far;
+        if (xf >= 0 && yf >= 0 && xf <= w - 1 && yf <= h - 1) {
+          const jf = ((yf + 0.5) | 0) * w + ((xf + 0.5) | 0);
+          const fR = C[0][ji] - C[0][jf], fG = C[1][ji] - C[1][jf], fB = C[2][ji] - C[2][jf];
+          farN++;
+          if (Math.sqrt((fR * fR + fG * fG + fB * fB) / 3) < 14) farSame++;
+        }
+      }
+      if (inF < 3) qi = QB * 0.8;
+      else {
+        const vis = inF / Math.max(1, total);
+        qi = (sup / inF) * Math.min(1, stepSum / inF / 22) * (0.4 + 0.6 * vis);
+        if (farN > 4) qi *= 1 - 0.75 * (farSame / farN);
+        signs.push(sg / inF);
+      }
+    }
+    tot += qi * len; totLen += len; minQ = Math.min(minQ, qi);
+  }
+  const Qm = tot / totLen;
+  let angF = 1;
+  for (let i = 0; i < 4; i++) {
+    const a = q[(i + 3) % 4], b = q[i], c = q[(i + 1) % 4];
+    const v1x = a[0] - b[0], v1y = a[1] - b[1], v2x = c[0] - b[0], v2y = c[1] - b[1];
+    const ang = Math.acos(clamp((v1x * v2x + v1y * v2y) / (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y)), -1, 1)) * 180 / Math.PI;
+    const dev = Math.abs(ang - 90);
+    if (dev > 40) angF *= Math.max(0.12, 1 - (dev - 40) / 35);
+  }
+  // Sides should agree on which side is brighter. Paper is usually lighter
+  // than what it rests on, while printed boxes are darker than the page.
+  let pos = 0, neg = 0;
+  for (const s of signs) { if (s > 8) pos++; else if (s < -8) neg++; }
+  const sf = pos && neg ? 0.7 : neg ? 0.85 : 1;
+  const cIn = pointInQuad(w / 2, h / 2, q) ? 1 : 0.8;
+  return (0.65 * Qm + 0.35 * minQ) * (0.3 + 0.7 * Math.sqrt(af)) * angF * sf * cIn;
+}
+
+// Fallback candidate from a brightness split: the blob under the image centre.
+function regionQuad(ctx) {
+  const { w, h, L } = ctx, N = w * h;
+  const hist = new Float64Array(256);
+  for (let i = 0; i < N; i++) hist[clamp(L[i] | 0, 0, 255)]++;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, best = 0, t = 128;
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]; if (!wB) continue;
+    const wF = N - wB; if (!wF) break;
+    sB += i * hist[i];
+    const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best) { best = v; t = i; }
+  }
+  const ci = ((h / 2) | 0) * w + ((w / 2) | 0);
+  const target = L[ci] > t;
+  const reg = new Uint8Array(N), st = [ci];
+  reg[ci] = 1;
+  let area = 0;
+  while (st.length) {
+    const i = st.pop(); area++;
+    const x = i % w;
+    if (x > 0 && !reg[i - 1] && (L[i - 1] > t) === target) { reg[i - 1] = 1; st.push(i - 1); }
+    if (x < w - 1 && !reg[i + 1] && (L[i + 1] > t) === target) { reg[i + 1] = 1; st.push(i + 1); }
+    if (i >= w && !reg[i - w] && (L[i - w] > t) === target) { reg[i - w] = 1; st.push(i - w); }
+    if (i < N - w && !reg[i + w] && (L[i + w] > t) === target) { reg[i + w] = 1; st.push(i + w); }
+  }
+  if (area < 0.06 * N || area > 0.97 * N) return null;
+  const pts = [];
+  for (let y = 0; y < h; y++) {
+    let a = -1, b = -1;
+    for (let x = 0; x < w; x++) if (reg[y * w + x]) { if (a < 0) a = x; b = x; }
+    if (a >= 0) { pts.push([a, y]); pts.push([b, y]); }
+  }
+  const hull = simplifyPoly(convexHull(pts), 16);
+  const q = maxAreaQuad(hull);
+  return q ? orderQuad(q) : null;
+}
+
+function candidateQuads(ctx, lines) {
+  const { w, h } = ctx;
+  const B = [
+    { t: 0, theta: 0, rho: 0, border: 1 }, { t: 0, theta: 0, rho: w - 1, border: 1 },
+    { t: 90, theta: Math.PI / 2, rho: 0, border: 1 }, { t: 90, theta: Math.PI / 2, rho: h - 1, border: 1 }];
+  const all = lines.concat(B);
+  const pairs = [];
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    if (angDiff(all[i].t, all[j].t) <= 32) pairs.push([i, j]);
+  }
+  const out = [];
+  const minSide = 0.1 * Math.min(w, h);
+  for (let a = 0; a < pairs.length; a++) for (let b = a + 1; b < pairs.length; b++) {
+    const [i1, i2] = pairs[a], [j1, j2] = pairs[b];
+    if (i1 === j1 || i1 === j2 || i2 === j1 || i2 === j2) continue;
+    const A1 = all[i1], A2 = all[i2], B1 = all[j1], B2 = all[j2];
+    if (A1.border && A2.border && B1.border && B2.border) continue;
+    if (angDiff(A1.t, B1.t) < 38) continue;
+    const p = [intersect(A1, B1), intersect(A1, B2), intersect(A2, B2), intersect(A2, B1)];
+    if (p.some(v => !v)) continue;
+    if (p.some(v => v[0] < -0.05 * w || v[0] > 1.05 * w || v[1] < -0.05 * h || v[1] > 1.05 * h)) continue;
+    const q = orderQuad(p);
+    if (!isConvex(q)) continue;
+    if (polyArea(q) < 0.06 * w * h) continue;
+    let ok = true;
+    for (let s = 0; s < 4; s++) if (Math.hypot(q[s][0] - q[(s + 1) % 4][0], q[s][1] - q[(s + 1) % 4][1]) < minSide) { ok = false; break; }
+    if (ok) out.push(q);
+  }
+  return out;
+}
+
+/**
+ * Find the most likely document outline. img should be ~400-700px on its long side.
+ * Returns { quad: [[x,y]x4] normalised to 0..1, clockwise from top-left, score } or quad=null.
+ */
+function detect(img, opt = {}) {
+  const ctx = prep(img);
+  const E = cannyEdges(ctx);
+  const lines = houghLines(ctx, E, opt.maxLines || 14);
+  const cands = candidateQuads(ctx, lines);
+  const rq = regionQuad(ctx);
+  if (rq) cands.push(rq);
+  let scored = cands.map(q => ({ q, s: scoreQuad(ctx, q, 7) }));
+  scored.sort((a, b) => b.s - a.s);
+  scored = scored.slice(0, 12).map(c => ({ q: c.q, s: scoreQuad(ctx, c.q, 2) }));
+  scored.sort((a, b) => b.s - a.s);
+  const { w, h } = ctx;
+  const best = scored[0];
+  const minScore = opt.minScore != null ? opt.minScore : 0.38;
+  const top = opt.debug ? scored.slice(0, 6) : undefined;
+  const fullFrame = best && [0, 1, 2, 3].every(i => onBorder(best.q[i], best.q[(i + 1) % 4], w, h));
+  if (!best || best.s < minScore || fullFrame) return { quad: null, score: best ? best.s : 0, nLines: lines.length, top };
+  const quad = best.q.map(p => [clamp(p[0], 0, w - 1) / (w - 1), clamp(p[1], 0, h - 1) / (h - 1)]);
+  return { quad, score: best.s, nLines: lines.length, top };
+}
+
+/* ------------------------------------------------------------------ */
+/* Corner refinement at higher resolution                              */
+/* ------------------------------------------------------------------ */
+
+function fitLine(pts) {
+  let use = pts.slice();
+  for (let iter = 0; iter < 4 && use.length >= 2; iter++) {
+    let mx = 0, my = 0;
+    for (const p of use) { mx += p[0]; my += p[1]; }
+    mx /= use.length; my /= use.length;
+    let sxx = 0, sxy = 0, syy = 0;
+    for (const p of use) { const dx = p[0] - mx, dy = p[1] - my; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
+    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    const nx = -Math.sin(th), ny = Math.cos(th), c = nx * mx + ny * my;
+    const res = pts.map(p => Math.abs(nx * p[0] + ny * p[1] - c));
+    const sorted = res.slice().sort((a, b) => a - b);
+    const tol = Math.max(1.2, 2.5 * sorted[sorted.length >> 1]);
+    const next = pts.filter((p, i) => res[i] <= tol);
+    if (iter === 3 || next.length === use.length) return { nx, ny, c, n: next.length };
+    use = next;
+  }
+  return null;
+}
+function lineFromPts(P, Q) {
+  const dx = Q[0] - P[0], dy = Q[1] - P[1], l = Math.hypot(dx, dy) || 1;
+  const nx = -dy / l, ny = dx / l;
+  return { nx, ny, c: nx * P[0] + ny * P[1] };
+}
+function lineIsect(a, b) {
+  const det = a.nx * b.ny - a.ny * b.nx;
+  if (Math.abs(det) < 1e-9) return null;
+  return [(a.c * b.ny - a.ny * b.c) / det, (a.nx * b.c - a.c * b.nx) / det];
+}
+
+function refine(img, qn) {
+  const ctx = prep(img);
+  const { w, h, gx, gy, diag } = ctx;
+  const q = qn.map(p => [p[0] * (w - 1), p[1] * (h - 1)]);
+  const S = Math.max(6, Math.round(diag * 0.014));
+  const lines = [];
+  for (let s = 0; s < 4; s++) {
+    const P = q[s], Q = q[(s + 1) % 4];
+    const orig = lineFromPts(P, Q);
+    lines.push(orig);
+    if (onBorder(P, Q, w, h)) continue;
+    const dx = Q[0] - P[0], dy = Q[1] - P[1], len = Math.hypot(dx, dy);
+    const tx = dx / len, ty = dy / len, nx = -ty, ny = tx;
+    const pos = [], neg = [];
+    let sp = 0, sn = 0;
+    for (let k = 1; k < 60; k++) {
+      const u = 0.08 + 0.84 * k / 60;
+      const bx = P[0] + dx * u, by = P[1] + dy * u;
+      let bp = 0, tp = 0, bn = 0, tn = 0;
+      for (let t = -S; t <= S; t++) {
+        const xx = Math.round(bx + nx * t), yy = Math.round(by + ny * t);
+        if (xx < 1 || yy < 1 || xx >= w - 1 || yy >= h - 1) continue;
+        const j = yy * w + xx, dd = gx[j] * nx + gy[j] * ny;
+        const wgt = 1 - 0.35 * Math.abs(t) / S;
+        if (dd * wgt > bp) { bp = dd * wgt; tp = t; }
+        if (-dd * wgt > bn) { bn = -dd * wgt; tn = t; }
+      }
+      if (bp > ctx.lo) { pos.push([bx + nx * tp, by + ny * tp]); sp += bp; }
+      if (bn > ctx.lo) { neg.push([bx + nx * tn, by + ny * tn]); sn += bn; }
+    }
+    const pts = sp >= sn ? pos : neg;
+    if (pts.length < 18) continue;
+    const L = fitLine(pts);
+    if (!L || L.n < 16) continue;
+    const dAng = Math.acos(clamp(Math.abs(L.nx * orig.nx + L.ny * orig.ny), 0, 1)) * 180 / Math.PI;
+    if (dAng > 6) continue;
+    lines[s] = L;
+  }
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    const p = lineIsect(lines[(i + 3) % 4], lines[i]);
+    if (!p || Math.hypot(p[0] - q[i][0], p[1] - q[i][1]) > 0.035 * diag) out.push(q[i]);
+    else out.push([clamp(p[0], 0, w - 1), clamp(p[1], 0, h - 1)]);
+  }
+  if (!isConvex(out)) return qn;
+  return out.map(p => [p[0] / (w - 1), p[1] / (h - 1)]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Rectification                                                       */
+/* ------------------------------------------------------------------ */
+
+const PAPER = [Math.SQRT2, 11 / 8.5, 14 / 8.5];
+
+// Width/height of the real sheet using Zhang & He's whiteboard method, which
+// recovers focal length from the quad; falls back to mean side lengths.
+function estimateAspect(qpx, imgW, imgH) {
+  const [tl, tr, br, bl] = qpx;
+  const sideW = (Math.hypot(tr[0] - tl[0], tr[1] - tl[1]) + Math.hypot(br[0] - bl[0], br[1] - bl[1])) / 2;
+  const sideH = (Math.hypot(bl[0] - tl[0], bl[1] - tl[1]) + Math.hypot(br[0] - tr[0], br[1] - tr[1])) / 2;
+  const fallback = sideW / sideH;
+  const u0 = imgW / 2, v0 = imgH / 2;
+  const m1 = [tl[0], tl[1], 1], m2 = [tr[0], tr[1], 1], m3 = [bl[0], bl[1], 1], m4 = [br[0], br[1], 1];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const k2 = dot(cross(m1, m4), m3) / dot(cross(m2, m4), m3);
+  const k3 = dot(cross(m1, m4), m2) / dot(cross(m3, m4), m2);
+  const n2 = [k2 * m2[0] - m1[0], k2 * m2[1] - m1[1], k2 * m2[2] - m1[2]];
+  const n3 = [k3 * m3[0] - m1[0], k3 * m3[1] - m1[1], k3 * m3[2] - m1[2]];
+  const diag = Math.hypot(imgW, imgH);
+  const den = n2[2] * n3[2];
+  // Focal length from the two vanishing points. When a pair of sides is parallel
+  // in the image (camera tilted on one axis only) it is undetermined, so fall back
+  // to a typical phone main camera (about 0.7 x the image diagonal).
+  let f2 = Math.abs(den) < 1e-9 ? NaN : -((n2[0] * n3[0] - (n2[0] * n3[2] + n2[2] * n3[0]) * u0 + n2[2] * n3[2] * u0 * u0) +
+              (n2[1] * n3[1] - (n2[1] * n3[2] + n2[2] * n3[1]) * v0 + n2[2] * n3[2] * v0 * v0)) / den;
+  if (!(f2 > 0) || Math.sqrt(f2) < 0.4 * diag || Math.sqrt(f2) > 2.2 * diag) f2 = (0.7 * diag) ** 2;
+  const Aq = v => {
+    const x = v[0] - u0 * v[2], y = v[1] - v0 * v[2];
+    return (x * x + y * y) / f2 + v[2] * v[2];
+  };
+  const r = Math.sqrt(Aq(n2) / Aq(n3));
+  if (!isFinite(r) || r <= 0 || r / fallback > 2 || fallback / r > 2) return fallback;
+  return r;
+}
+function outputSize(qpx, imgW, imgH, maxSide, snap) {
+  let r = estimateAspect(qpx, imgW, imgH);
+  if (snap) {
+    const long = r >= 1 ? r : 1 / r;
+    for (const p of PAPER) if (Math.abs(long - p) / p < 0.035) { r = r >= 1 ? p : 1 / p; break; }
+  }
+  const [tl, tr, br, bl] = qpx;
+  const wpx = Math.max(Math.hypot(tr[0] - tl[0], tr[1] - tl[1]), Math.hypot(br[0] - bl[0], br[1] - bl[1]));
+  const hpx = Math.max(Math.hypot(bl[0] - tl[0], bl[1] - tl[1]), Math.hypot(br[0] - tr[0], br[1] - tr[1]));
+  let H = Math.max(hpx, wpx / r), W = H * r;
+  const s = Math.min(1, maxSide / Math.max(W, H));
+  W = Math.max(16, Math.round(W * s)); H = Math.max(16, Math.round(H * s));
+  return { W, H, ratio: r };
+}
+function warp(img, qpx, W, H) {
+  const Hm = homography([[0, 0], [W, 0], [W, H], [0, H]], qpx);
+  const { w, h, d } = img, out = makeImg(W, H), o = out.d;
+  for (let y = 0; y < H; y++) {
+    const yy = y + 0.5;
+    let X = Hm[0] * 0.5 + Hm[1] * yy + Hm[2], Y = Hm[3] * 0.5 + Hm[4] * yy + Hm[5], Z = Hm[6] * 0.5 + Hm[7] * yy + Hm[8];
+    for (let x = 0, j = y * W * 4; x < W; x++, j += 4) {
+      let sx = X / Z - 0.5, sy = Y / Z - 0.5;
+      X += Hm[0]; Y += Hm[3]; Z += Hm[6];
+      sx = sx < 0 ? 0 : sx > w - 1.001 ? w - 1.001 : sx;
+      sy = sy < 0 ? 0 : sy > h - 1.001 ? h - 1.001 : sy;
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+      const i = (y0 * w + x0) * 4, i2 = i + w * 4;
+      const a = (1 - fx) * (1 - fy), b = fx * (1 - fy), c = (1 - fx) * fy, e = fx * fy;
+      o[j] = d[i] * a + d[i + 4] * b + d[i2] * c + d[i2 + 4] * e;
+      o[j + 1] = d[i + 1] * a + d[i + 5] * b + d[i2 + 1] * c + d[i2 + 5] * e;
+      o[j + 2] = d[i + 2] * a + d[i + 6] * b + d[i2 + 2] * c + d[i2 + 6] * e;
+      o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+// Perspective-correct qn (normalised) out of img; output long side <= maxSide.
+function rectify(img, qn, maxSide, snap) {
+  const qpx = qn.map(p => [p[0] * img.w, p[1] * img.h]);
+  const { W, H } = outputSize(qpx, img.w, img.h, maxSide, snap);
+  return warp(img, qpx, W, H);
+}
+function rotate(img, k) {
+  k = ((k % 4) + 4) % 4;
+  if (!k) return img;
+  const { w, h, d } = img;
+  const W = k === 2 ? w : h, H = k === 2 ? h : w;
+  const out = makeImg(W, H), o = new Uint32Array(out.d.buffer), s = new Uint32Array(d.buffer, d.byteOffset, w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let X, Y;
+    if (k === 1) { X = h - 1 - y; Y = x; } else if (k === 2) { X = w - 1 - x; Y = h - 1 - y; } else { X = y; Y = w - 1 - x; }
+    o[Y * W + X] = s[y * w + x];
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Enhancement                                                         */
+/* ------------------------------------------------------------------ */
+
+// Paper colour across the page, estimated at low resolution. Dark content
+// (text, photos) is masked out and filled in from surrounding paper.
+function bgEstimate(img) {
+  const sm = resizeArea(img, 160);
+  const { w, h, d } = sm, N = w * h;
+  const C = [0, 1, 2].map(c => {
+    const a = new Float32Array(N);
+    for (let i = 0, j = c; i < N; i++, j += 4) a[i] = d[j];
+    return morph(morph(a, w, h, 2, true), w, h, 2, false);
+  });
+  const L = new Float32Array(N);
+  for (let i = 0; i < N; i++) L[i] = 0.299 * C[0][i] + 0.587 * C[1][i] + 0.114 * C[2][i];
+  const M = morph(L, w, h, Math.max(4, Math.round(Math.max(w, h) / 8)), true);
+  // Paper is flat once text is closed away; shadows are flat too but darker,
+  // photos are textured. Accept flat areas down to half the local maximum.
+  const L2 = new Float32Array(N);
+  for (let i = 0; i < N; i++) L2[i] = L[i] * L[i];
+  const mu = boxBlur(L, w, h, 2), mu2 = boxBlur(L2, w, h, 2);
+  const mask = new Float32Array(N);
+  let gl = [0, 0, 0], gn = 0;
+  for (let i = 0; i < N; i++) {
+    const sd = Math.sqrt(Math.max(0, mu2[i] - mu[i] * mu[i]));
+    const paper = L[i] > 30 && (L[i] >= 0.82 * M[i] || (L[i] >= 0.5 * M[i] && sd < 6));
+    if (paper) { mask[i] = 1; gl[0] += C[0][i]; gl[1] += C[1][i]; gl[2] += C[2][i]; gn++; }
+  }
+  if (gn) gl = gl.map(v => v / gn); else gl = [255, 255, 255];
+  const s1 = Math.max(1.5, Math.max(w, h) / 70), s2 = Math.max(6, Math.max(w, h) / 12);
+  const den1 = gaussBlur(mask, w, h, s1), den2 = gaussBlur(mask, w, h, s2);
+  const B = C.map((a, c) => {
+    const m = new Float32Array(N);
+    for (let i = 0; i < N; i++) m[i] = a[i] * mask[i];
+    const n1 = gaussBlur(m, w, h, s1), n2 = gaussBlur(m, w, h, s2);
+    const out = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const v1 = den1[i] > 1e-3 ? n1[i] / den1[i] : gl[c];
+      const v2 = den2[i] > 1e-3 ? n2[i] / den2[i] : gl[c];
+      const t = clamp((den1[i] - 0.05) / 0.25, 0, 1);
+      out[i] = v1 * t + v2 * (1 - t);
+    }
+    const o2 = gaussBlur(out, w, h, 1);
+    for (let i = 0; i < N; i++) o2[i] = Math.max(o2[i], 0.35 * gl[c], 10);
+    return o2;
+  });
+  return { w, h, B, paper: gl };
+}
+// Per-pixel bilinear sampler of the background grid for an image of size W x H.
+function bgSampler(bg, W, H) {
+  const { w, h } = bg;
+  const xi = new Int32Array(W), xf = new Float32Array(W), yi = new Int32Array(H), yf = new Float32Array(H);
+  for (let x = 0; x < W; x++) { const s = clamp((x + 0.5) * w / W - 0.5, 0, w - 1.001); xi[x] = s | 0; xf[x] = s - (s | 0); }
+  for (let y = 0; y < H; y++) { const s = clamp((y + 0.5) * h / H - 0.5, 0, h - 1.001); yi[y] = s | 0; yf[y] = s - (s | 0); }
+  return { xi, xf, yi, yf, w };
+}
+function normalise(img, bg) {
+  const { w, h, d } = img, N = w * h;
+  const S = bgSampler(bg, w, h), [B0, B1, B2] = bg.B;
+  const R = new Float32Array(N), G = new Float32Array(N), Bl = new Float32Array(N);
+  for (let y = 0; y < h; y++) {
+    const r0 = S.yi[y] * bg.w, r1 = r0 + bg.w, fy = S.yf[y];
+    for (let x = 0, i = y * w, j = y * w * 4; x < w; x++, i++, j += 4) {
+      const a = r0 + S.xi[x], b = r1 + S.xi[x], fx = S.xf[x];
+      const k00 = (1 - fx) * (1 - fy), k01 = fx * (1 - fy), k10 = (1 - fx) * fy, k11 = fx * fy;
+      R[i] = d[j] / (B0[a] * k00 + B0[a + 1] * k01 + B0[b] * k10 + B0[b + 1] * k11);
+      G[i] = d[j + 1] / (B1[a] * k00 + B1[a + 1] * k01 + B1[b] * k10 + B1[b + 1] * k11);
+      Bl[i] = d[j + 2] / (B2[a] * k00 + B2[a + 1] * k01 + B2[b] * k10 + B2[b + 1] * k11);
+    }
+  }
+  return [R, G, Bl];
+}
+function lumOf(P, N) {
+  const Y = new Float32Array(N);
+  for (let i = 0; i < N; i++) Y[i] = 0.299 * P[0][i] + 0.587 * P[1][i] + 0.114 * P[2][i];
+  return Y;
+}
+function blackPoint(Y) {
+  const step = Math.max(1, Math.floor(Y.length / 60000));
+  const s = [];
+  for (let i = 0; i < Y.length; i += step) s.push(Y[i]);
+  s.sort((a, b) => a - b);
+  return clamp(s[Math.floor(s.length * 0.004)], 0, 0.4);
+}
+
+/**
+ * mode: 'color' | 'gray' | 'bw' | 'none' (crop only).
+ * adjust: -1..1 (contrast for colour/grey, threshold for B&W).
+ */
+function enhance(img, mode, adjust = 0) {
+  const { w, h } = img, N = w * h;
+  if (mode === 'none' || mode === 'photo') return img;
+  const bg = bgEstimate(img);
+  const P = normalise(img, bg);
+  const Y = lumOf(P, N);
+  const out = makeImg(w, h), o = out.d;
+  if (mode === 'bw') {
+    const Yb = boxBlur(Y, w, h, Math.max(w, h) > 1600 ? 1 : 0);
+    const t = 0.68 + 0.16 * adjust;
+    const ink = new Uint8Array(N);
+    for (let i = 0; i < N; i++) ink[i] = Yb[i] < t ? 1 : 0;
+    for (let y = 1; y < h - 1; y++) for (let x = 1, i = y * w + 1; x < w - 1; x++, i++) {
+      if (!ink[i]) continue;
+      const n = ink[i - w - 1] + ink[i - w] + ink[i - w + 1] + ink[i - 1] + ink[i + 1] + ink[i + w - 1] + ink[i + w] + ink[i + w + 1];
+      if (n === 0) ink[i] = 0;
+    }
+    for (let i = 0, j = 0; i < N; i++, j += 4) { const v = ink[i] ? 0 : 255; o[j] = o[j + 1] = o[j + 2] = v; o[j + 3] = 255; }
+    return out;
+  }
+  const bp = clamp(blackPoint(Y) + 0.1 * adjust, 0, 0.55);
+  const wp = clamp(0.93 - 0.04 * adjust, 0.75, 0.99);
+  const k = 1 / (wp - bp);
+  const Yo = new Float32Array(N);
+  if (mode === 'gray') {
+    for (let i = 0; i < N; i++) Yo[i] = Math.pow(clamp((Y[i] - bp) * k, 0, 1), 1.08) * 255;
+  } else {
+    const sat = 1.25;
+    for (let i = 0, j = 0; i < N; i++, j += 4) {
+      const yl = clamp((Y[i] - bp) * k, 0, 1);
+      const r = clamp((P[0][i] - bp) * k, 0, 1), g = clamp((P[1][i] - bp) * k, 0, 1), b = clamp((P[2][i] - bp) * k, 0, 1);
+      o[j] = (yl + (r - yl) * sat) * 255; o[j + 1] = (yl + (g - yl) * sat) * 255; o[j + 2] = (yl + (b - yl) * sat) * 255; o[j + 3] = 255;
+      Yo[i] = yl * 255;
+    }
+  }
+  // Unsharp mask on luminance.
+  const amt = Math.max(w, h) > 1200 ? 0.55 : 0.35;
+  const Yb = gaussBlur(Yo, w, h, Math.max(w, h) > 2400 ? 1.4 : 1);
+  for (let i = 0, j = 0; i < N; i++, j += 4) {
+    const dl = amt * (Yo[i] - Yb[i]);
+    if (mode === 'gray') { const v = Yo[i] + dl; o[j] = o[j + 1] = o[j + 2] = v; o[j + 3] = 255; }
+    else { o[j] += dl; o[j + 1] += dl; o[j + 2] += dl; }
+  }
+  return out;
+}
+
+// Pick colour, grey or B&W from what is on the page.
+function decideMode(img) {
+  const sm = resizeArea(img, 360);
+  const { w, h } = sm, N = w * h;
+  const bg = bgEstimate(sm);
+  const P = normalise(sm, bg).map(a => boxBlur(a, w, h, 1));
+  let col = 0;
+  for (let i = 0; i < N; i++) {
+    const r = P[0][i], g = P[1][i], b = P[2][i];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx - mn > 0.2 && mx > 0.3) col++;
+  }
+  const Y = lumOf(P, N);
+  const loc = boxBlur(Y, w, h, Math.max(3, Math.round(Math.max(w, h) / 55)));
+  let photo = 0;
+  for (let i = 0; i < N; i++) if (loc[i] < 0.6) photo++;
+  const colourFrac = col / N, photoFrac = photo / N;
+  const mode = colourFrac > 0.006 ? 'color' : photoFrac > 0.018 ? 'gray' : 'bw';
+  return { mode, colourFrac, photoFrac };
+}
+
+/* ------------------------------------------------------------------ */
+/* Article blocks (text column / photo regions in a rectified page)    */
+/* ------------------------------------------------------------------ */
+
+function findBlocks(img) {
+  const { w, h } = img, N = w * h;
+  const bg = bgEstimate(img);
+  const Y = lumOf(normalise(img, bg), N);
+  const ink = new Uint8Array(N);
+  for (let i = 0; i < N; i++) ink[i] = Y[i] < 0.62 ? 1 : 0;
+  // Typical text height from connected components.
+  const lab = new Int32Array(N), heights = [];
+  let nl = 0;
+  const st = [];
+  for (let s = 0; s < N; s++) {
+    if (!ink[s] || lab[s]) continue;
+    nl++; lab[s] = nl; st.push(s);
+    let y0 = h, y1 = 0, x0 = w, x1 = 0, cnt = 0;
+    while (st.length) {
+      const i = st.pop(), x = i % w, y = (i / w) | 0;
+      cnt++; if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        const j = yy * w + xx;
+        if (ink[j] && !lab[j]) { lab[j] = nl; st.push(j); }
+      }
+    }
+    const ch = y1 - y0 + 1, cw = x1 - x0 + 1;
+    if (ch >= 4 && ch <= h / 10 && cnt >= 6 && cw <= 3 * ch) heights.push(ch);
+  }
+  heights.sort((a, b) => a - b);
+  const th = heights.length > 20 ? heights[heights.length >> 1] : Math.max(6, Math.round(Math.max(w, h) / 120));
+  // Thin rules: long ink runs with clear paper a little above/below (or left/right).
+  const k = Math.round(0.7 * th) + 1;
+  const rule = new Uint8Array(N);
+  const minRunH = Math.max(6 * th, w * 0.06), minRunV = Math.max(6 * th, h * 0.06);
+  for (let y = 0; y < h; y++) {
+    let x = 0;
+    while (x < w) {
+      if (!ink[y * w + x]) { x++; continue; }
+      let e = x; while (e < w && ink[y * w + e]) e++;
+      if (e - x >= minRunH) {
+        for (let u = x; u < e; u++) {
+          const up = y - k >= 0 ? ink[(y - k) * w + u] : 0, dn = y + k < h ? ink[(y + k) * w + u] : 0;
+          if (!up || !dn) rule[y * w + u] = 1;
+        }
+      }
+      x = e;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let y = 0;
+    while (y < h) {
+      if (!ink[y * w + x]) { y++; continue; }
+      let e = y; while (e < h && ink[e * w + x]) e++;
+      if (e - y >= minRunV) {
+        for (let u = y; u < e; u++) {
+          const lf = x - k >= 0 ? ink[u * w + x - k] : 0, rt = x + k < w ? ink[u * w + x + k] : 0;
+          if (!lf || !rt) rule[u * w + x] = 2;
+        }
+      }
+      y = e;
+    }
+  }
+  const rx = Math.max(1, Math.round(0.65 * th)), ry = Math.max(1, Math.round(0.8 * th));
+  const f = new Float32Array(N);
+  for (let i = 0; i < N; i++) f[i] = ink[i] && !rule[i] ? 1 : 0;
+  // Separable dilation: horizontal by rx, vertical by ry.
+  const t = new Float32Array(N), g = new Float32Array(N);
+  for (let y = 0; y < h; y++) {
+    let last = -1e9;
+    for (let x = 0; x < w; x++) { if (f[y * w + x]) last = x; t[y * w + x] = x - last <= rx ? 1 : 0; }
+    last = 1e9;
+    for (let x = w - 1; x >= 0; x--) { if (f[y * w + x]) last = x; if (last - x <= rx) t[y * w + x] = 1; }
+  }
+  for (let x = 0; x < w; x++) {
+    let last = -1e9;
+    for (let y = 0; y < h; y++) { if (t[y * w + x]) last = y; g[y * w + x] = y - last <= ry ? 1 : 0; }
+    last = 1e9;
+    for (let y = h - 1; y >= 0; y--) { if (t[y * w + x]) last = y; if (last - y <= ry) g[y * w + x] = 1; }
+  }
+  // Cut bands along rules so blocks never merge across them.
+  for (let i = 0; i < N; i++) {
+    if (!rule[i]) continue;
+    const x = i % w, y = (i / w) | 0;
+    if (rule[i] === 1) { for (let dy = -ry; dy <= ry; dy++) { const yy = y + dy; if (yy >= 0 && yy < h && Math.abs(dy) <= 1) g[yy * w + x] = 0; } }
+    else { for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx >= 0 && xx < w) g[y * w + xx] = 0; } }
+  }
+  // Components of the dilated mask become blocks.
+  const seen = new Uint8Array(N), blocks = [];
+  for (let s = 0; s < N; s++) {
+    if (!g[s] || seen[s]) continue;
+    seen[s] = 1; st.push(s);
+    let y0 = h, y1 = 0, x0 = w, x1 = 0, cnt = 0;
+    while (st.length) {
+      const i = st.pop(), x = i % w, y = (i / w) | 0;
+      cnt++; if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (x > 0 && g[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; st.push(i - 1); }
+      if (x < w - 1 && g[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; st.push(i + 1); }
+      if (y > 0 && g[i - w] && !seen[i - w]) { seen[i - w] = 1; st.push(i - w); }
+      if (y < h - 1 && g[i + w] && !seen[i + w]) { seen[i + w] = 1; st.push(i + w); }
+    }
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (bw * bh < 8 * th * th || (bh < 1.6 * th && bw < 5 * th)) continue;
+    blocks.push([x0, y0, x1 + 1, y1 + 1]);
+  }
+  // Merge boxes that overlap.
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
+      const a = blocks[i], b = blocks[j];
+      const ix = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), iy = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+      if (ix > 0 && iy > 0 && ix * iy > 0.3 * Math.min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))) {
+        blocks[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+        blocks.splice(j, 1); merged = true; break outer;
+      }
+    }
+  }
+  // Join single-line pieces that sit side by side (headline words).
+  merged = true;
+  while (merged) {
+    merged = false;
+    outer2: for (let i = 0; i < blocks.length; i++) for (let j = 0; j < blocks.length; j++) {
+      if (i === j) continue;
+      const a = blocks[i], b = blocks[j];
+      const ha = a[3] - a[1], hb = b[3] - b[1];
+      if (ha > 9 * th || hb > 9 * th) continue;
+      const ov = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+      const gap = b[0] - a[2];
+      if (ov > 0.5 * Math.min(ha, hb) && gap > -2 && gap < 1.3 * Math.min(ha, hb)) {
+        blocks[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+        blocks.splice(j, 1); merged = true; break outer2;
+      }
+    }
+  }
+  // Drop slivers along the page edge (leftover table or shadow).
+  const edge = 2;
+  const kept = blocks.filter(b => {
+    const bw = b[2] - b[0], bh = b[3] - b[1];
+    const touches = b[0] <= edge || b[1] <= edge || b[2] >= w - edge || b[3] >= h - edge;
+    return !(touches && (bw < 1.5 * th || bh < 1.5 * th));
+  });
+  kept.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+  return { w, h, th, blocks: kept.map(b => [b[0] / w, b[1] / h, b[2] / w, b[3] / h]) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Byte helpers, CRC, PNG, ZIP                                         */
+/* ------------------------------------------------------------------ */
+
+const utf8 = s => new TextEncoder().encode(s);
+function latin1(s) { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; }
+function concat(...arrs) {
+  let n = 0; for (const a of arrs) n += a.length;
+  const o = new Uint8Array(n); let p = 0;
+  for (const a of arrs) { o.set(a, p); p += a.length; }
+  return o;
+}
+const hex = u => Array.from(u, b => b.toString(16).padStart(2, '0')).join('');
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u, crc = 0) {
+  let c = crc ^ 0xFFFFFFFF;
+  for (let i = 0; i < u.length; i++) c = CRC_T[(c ^ u[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function zlib(u8) {
+  const s = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+const canPNG1 = () => typeof CompressionStream !== 'undefined';
+
+// 1-bit greyscale PNG from a B&W RGBA image: tiny files for text pages.
+async function encodePNG1(img, dpi) {
+  const { w, h, d } = img, rb = Math.ceil(w / 8);
+  const raw = new Uint8Array((rb + 1) * h);
+  for (let y = 0; y < h; y++) {
+    const o = y * (rb + 1);
+    for (let x = 0; x < w; x++) if (d[(y * w + x) * 4] > 127) raw[o + 1 + (x >> 3)] |= 0x80 >> (x & 7);
+  }
+  const idat = await zlib(raw);
+  const chunk = (type, data) => {
+    const td = concat(latin1(type), data), len = new Uint8Array(4), crc = new Uint8Array(4);
+    new DataView(len.buffer).setUint32(0, data.length);
+    new DataView(crc.buffer).setUint32(0, crc32(td));
+    return concat(len, td, crc);
+  };
+  const ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, w); dv.setUint32(4, h); ihdr[8] = 1; ihdr[9] = 0;
+  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr)];
+  if (dpi) { const p = new Uint8Array(9), pv = new DataView(p.buffer), ppm = Math.round(dpi / 0.0254); pv.setUint32(0, ppm); pv.setUint32(4, ppm); p[8] = 1; parts.push(chunk('pHYs', p)); }
+  parts.push(chunk('IDAT', idat), chunk('IEND', new Uint8Array(0)));
+  return concat(...parts);
+}
+function pngInfo(u) {
+  const dv = new DataView(u.buffer, u.byteOffset, u.byteLength);
+  let p = 8, w = 0, h = 0, bits = 0, ct = 0;
+  const idat = [];
+  while (p < u.length) {
+    const len = dv.getUint32(p), type = String.fromCharCode(u[p + 4], u[p + 5], u[p + 6], u[p + 7]);
+    if (type === 'IHDR') { w = dv.getUint32(p + 8); h = dv.getUint32(p + 12); bits = u[p + 16]; ct = u[p + 17]; }
+    else if (type === 'IDAT') idat.push(u.subarray(p + 8, p + 8 + len));
+    else if (type === 'IEND') break;
+    p += 12 + len;
+  }
+  return { w, h, bits, ct, idat: concat(...idat) };
+}
+function jpegInfo(u) {
+  let p = 2;
+  while (p < u.length) {
+    if (u[p] !== 0xFF) { p++; continue; }
+    const m = u[p + 1];
+    if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { p += 2; continue; }
+    const len = (u[p + 2] << 8) | u[p + 3];
+    if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) {
+      return { h: (u[p + 5] << 8) | u[p + 6], w: (u[p + 7] << 8) | u[p + 8], comps: u[p + 9] };
+    }
+    p += 2 + len;
+  }
+  return null;
+}
+
+function zipStore(files) {
+  const now = new Date();
+  const dt = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xFFFF;
+  const dd = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+  const locals = [], central = [];
+  let off = 0;
+  for (const f of files) {
+    const name = utf8(f.name), crc = crc32(f.data), n = f.data.length;
+    const lh = new Uint8Array(30), lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true); lv.setUint16(8, 0, true);
+    lv.setUint16(10, dt, true); lv.setUint16(12, dd, true); lv.setUint32(14, crc, true); lv.setUint32(18, n, true); lv.setUint32(22, n, true);
+    lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true);
+    locals.push(lh, name, f.data);
+    const ch = new Uint8Array(46), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true);
+    cv.setUint16(12, dt, true); cv.setUint16(14, dd, true); cv.setUint32(16, crc, true); cv.setUint32(20, n, true); cv.setUint32(24, n, true);
+    cv.setUint16(28, name.length, true); cv.setUint32(42, off, true);
+    central.push(ch, name);
+    off += 30 + name.length + n;
+  }
+  const cd = concat(...central);
+  const end = new Uint8Array(22), ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cd.length, true); ev.setUint32(16, off, true);
+  return concat(...locals, cd, end);
+}
+
+/* ------------------------------------------------------------------ */
+/* PDF writer with optional AES-256 (PDF 2.0, R6) password protection  */
+/* ------------------------------------------------------------------ */
+
+async function aesCbcNoPad(keyBytes, iv, data) {
+  const k = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
+  return new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, k, data)).slice(0, data.length);
+}
+// ISO 32000-2 algorithm 2.B
+async function hash2B(pw, salt, udata) {
+  let K = new Uint8Array(await crypto.subtle.digest('SHA-256', concat(pw, salt, udata)));
+  let E = new Uint8Array(1), i = 0;
+  while (i < 64 || E[E.length - 1] > i - 32) {
+    const one = concat(pw, K, udata), K1 = new Uint8Array(one.length * 64);
+    for (let r = 0; r < 64; r++) K1.set(one, r * one.length);
+    E = await aesCbcNoPad(K.slice(0, 16), K.slice(16, 32), K1);
+    let s = 0; for (let b = 0; b < 16; b++) s += E[b];
+    K = new Uint8Array(await crypto.subtle.digest(['SHA-256', 'SHA-384', 'SHA-512'][s % 3], E));
+    i++;
+  }
+  return K.slice(0, 32);
+}
+async function pdfSecurity(userPw, ownerPw) {
+  const empty = new Uint8Array(0), z16 = new Uint8Array(16);
+  const upw = utf8(userPw.normalize('NFKC')).slice(0, 127);
+  const opw = utf8((ownerPw || hex(rnd(16))).normalize('NFKC')).slice(0, 127);
+  const fileKey = rnd(32);
+  const uvs = rnd(8), uks = rnd(8), ovs = rnd(8), oks = rnd(8);
+  const U = concat(await hash2B(upw, uvs, empty), uvs, uks);
+  const UE = await aesCbcNoPad(await hash2B(upw, uks, empty), z16, fileKey);
+  const O = concat(await hash2B(opw, ovs, U), ovs, oks);
+  const OE = await aesCbcNoPad(await hash2B(opw, oks, U), z16, fileKey);
+  const P = -4;
+  const perms = new Uint8Array(16);
+  new DataView(perms.buffer).setInt32(0, P, true);
+  perms.set([0xFF, 0xFF, 0xFF, 0xFF, 84, 97, 100, 98], 4); perms.set(rnd(4), 12);
+  const Perms = await aesCbcNoPad(fileKey, z16, perms);
+  const key = await crypto.subtle.importKey('raw', fileKey, { name: 'AES-CBC' }, false, ['encrypt']);
+  return {
+    dict: `<< /Filter /Standard /V 5 /R 6 /Length 256 /CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >> /StmF /StdCF /StrF /StdCF /O <${hex(O)}> /U <${hex(U)}> /OE <${hex(OE)}> /UE <${hex(UE)}> /P ${P} /Perms <${hex(Perms)}> /EncryptMetadata true >>`,
+    encrypt: async data => { const iv = rnd(16); return concat(iv, new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, data))); }
+  };
+}
+const PAGE_SIZES = { a4: [595.28, 841.89], letter: [612, 792] };
+
+/**
+ * pages: [{ bytes: Uint8Array, kind: 'jpeg' | 'png1' }]
+ * opt: { title, pageSize: 'auto' | 'a4' | 'letter', password }
+ */
+async function buildPDF(pages, opt = {}) {
+  const sec = opt.password ? await pdfSecurity(opt.password) : null;
+  const parts = [], offsets = [];
+  let pos = 0;
+  const push = u => { parts.push(u); pos += u.length; };
+  const S = s => push(latin1(s));
+  const n = pages.length, encNum = 4 + 3 * n;
+  const strObj = async bytes => '<' + hex(sec ? await sec.encrypt(bytes) : bytes) + '>';
+  const textStr = s => { const u = new Uint8Array(2 + s.length * 2); u[0] = 0xFE; u[1] = 0xFF; for (let i = 0; i < s.length; i++) { u[2 + i * 2] = s.charCodeAt(i) >> 8; u[3 + i * 2] = s.charCodeAt(i) & 255; } return u; };
+  const begin = num => { offsets[num] = pos; S(`${num} 0 obj\n`); };
+  const stream = async (num, dict, data) => {
+    if (sec) data = await sec.encrypt(data);
+    begin(num); S(`${dict.replace('%LEN%', data.length)}\nstream\n`); push(data); S('\nendstream\nendobj\n');
+  };
+  S('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n');
+  begin(1); S('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  const kids = pages.map((_, k) => `${4 + 3 * k} 0 R`).join(' ');
+  begin(2); S(`<< /Type /Pages /Kids [${kids}] /Count ${n} >>\nendobj\n`);
+  const d = new Date(), p2 = v => String(v).padStart(2, '0');
+  const date = `D:${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+  begin(3); S(`<< /Title ${await strObj(textStr(opt.title || 'Scan'))} /Producer ${await strObj(latin1('Flatbed'))} /CreationDate ${await strObj(latin1(date))} >>\nendobj\n`);
+  for (let k = 0; k < n; k++) {
+    const pg = pages[k], pn = 4 + 3 * k;
+    let iw, ih, dict, data;
+    if (pg.kind === 'png1') {
+      const info = pngInfo(pg.bytes);
+      iw = info.w; ih = info.h; data = info.idat;
+      dict = `<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /FlateDecode /DecodeParms << /Predictor 15 /Colors 1 /BitsPerComponent 1 /Columns ${iw} >> /Length %LEN% >>`;
+    } else {
+      const info = jpegInfo(pg.bytes);
+      iw = info.w; ih = info.h; data = pg.bytes;
+      const cs = info.comps === 1 ? '/DeviceGray' : info.comps === 4 ? '/DeviceCMYK /Decode [1 0 1 0 1 0 1 0]' : '/DeviceRGB';
+      dict = `<< /Type /XObject /Subtype /Image /Width ${iw} /Height ${ih} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode /Length %LEN% >>`;
+    }
+    let pw, ph, dw, dh, dx, dy;
+    const land = iw > ih;
+    if (opt.pageSize === 'a4' || opt.pageSize === 'letter') {
+      [pw, ph] = PAGE_SIZES[opt.pageSize]; if (land) [pw, ph] = [ph, pw];
+      const s = Math.min(pw / iw, ph / ih); dw = iw * s; dh = ih * s; dx = (pw - dw) / 2; dy = (ph - dh) / 2;
+    } else {
+      const s = 841.89 / Math.max(iw, ih); pw = dw = iw * s; ph = dh = ih * s; dx = dy = 0;
+    }
+    const f = v => v.toFixed(2);
+    begin(pn); S(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(pw)} ${f(ph)}] /Resources << /XObject << /Im0 ${pn + 2} 0 R >> >> /Contents ${pn + 1} 0 R >>\nendobj\n`);
+    await stream(pn + 1, '<< /Length %LEN% >>', latin1(`q ${f(dw)} 0 0 ${f(dh)} ${f(dx)} ${f(dy)} cm /Im0 Do Q`));
+    await stream(pn + 2, dict, data);
+  }
+  let size = 4 + 3 * n;
+  if (sec) { begin(encNum); S(sec.dict + '\nendobj\n'); size = encNum + 1; }
+  const xref = pos;
+  let x = `xref\n0 ${size}\n0000000000 65535 f \n`;
+  for (let i = 1; i < size; i++) x += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+  const id = hex(rnd(16));
+  x += `trailer\n<< /Size ${size} /Root 1 0 R /Info 3 0 R /ID [<${id}> <${id}>]${sec ? ` /Encrypt ${encNum} 0 R` : ''} >>\nstartxref\n${xref}\n%%EOF\n`;
+  S(x);
+  return concat(...parts);
+}
+
+/* ------------------------------------------------------------------ */
+/* Backup container (optionally AES-256-GCM with PBKDF2)               */
+/* ------------------------------------------------------------------ */
+
+const VAULT_ITER = 600000;
+async function vaultKey(password, salt, iter, usage) {
+  const base = await crypto.subtle.importKey('raw', utf8(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, [usage]);
+}
+async function vaultPack(meta, blobs, password) {
+  let off = 0;
+  meta.blobIndex = blobs.map(b => { const r = [off, b.length]; off += b.length; return r; });
+  const json = utf8(JSON.stringify(meta));
+  const payload = new Uint8Array(4 + json.length + off);
+  new DataView(payload.buffer).setUint32(0, json.length);
+  payload.set(json, 4);
+  let p = 4 + json.length;
+  for (const b of blobs) { payload.set(b, p); p += b.length; }
+  if (!password) return concat(latin1('FBV1'), new Uint8Array([0]), payload);
+  const salt = rnd(16), iv = rnd(12), hdr = new Uint8Array(4);
+  new DataView(hdr.buffer).setUint32(0, VAULT_ITER);
+  const key = await vaultKey(password, salt, VAULT_ITER, 'encrypt');
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, payload));
+  return concat(latin1('FBV1'), new Uint8Array([1]), hdr, salt, iv, ct);
+}
+function vaultIsEncrypted(u) { return String.fromCharCode(u[0], u[1], u[2], u[3]) === 'FBV1' ? u[4] === 1 : null; }
+async function vaultUnpack(u, password) {
+  if (String.fromCharCode(u[0], u[1], u[2], u[3]) !== 'FBV1') throw new Error('Not a Flatbed backup');
+  let payload;
+  if (u[4] === 1) {
+    const iter = new DataView(u.buffer, u.byteOffset + 5, 4).getUint32(0);
+    const salt = u.slice(9, 25), iv = u.slice(25, 37);
+    const key = await vaultKey(password || '', salt, iter, 'decrypt');
+    try { payload = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, u.subarray(37))); }
+    catch (e) { throw new Error('Wrong password'); }
+  } else payload = u.subarray(5);
+  const jl = new DataView(payload.buffer, payload.byteOffset, 4).getUint32(0);
+  const meta = JSON.parse(new TextDecoder().decode(payload.subarray(4, 4 + jl)));
+  const base = 4 + jl;
+  const blobs = meta.blobIndex.map(([o, l]) => payload.subarray(base + o, base + o + l));
+  return { meta, blobs };
+}
+
+return {
+  makeImg, resizeArea, detect, refine, rectify, outputSize, estimateAspect, warp, rotate, enhance, decideMode, findBlocks,
+  homography, applyH, orderQuad, polyArea, pointInQuad, isConvex, maxCornerDist,
+  encodePNG1, canPNG1, pngInfo, jpegInfo, crc32, zipStore, buildPDF, vaultPack, vaultUnpack, vaultIsEncrypted,
+  utf8, concat, hex
+};
+})();
+if (typeof module !== 'undefined') module.exports = FB;
+if (typeof self !== 'undefined') self.FB = FB;
+
+</script>
+<script id="fb-worker" type="text/plain">
+/* Flatbed worker: pixel work off the main thread. Appended after core.js. */
+(function () {
+'use strict';
+const OC = (() => {
+  try { return typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap === 'function' && !!new OffscreenCanvas(1, 1).getContext('2d') && typeof OffscreenCanvas.prototype.convertToBlob === 'function'; }
+  catch (e) { return false; }
+})();
+const MAX_SRC = 4200;
+const srcs = new Map();
+const FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];
+
+async function decode(blob) {
+  const bmp = await createImageBitmap(blob);
+  const s = Math.min(1, MAX_SRC / Math.max(bmp.width, bmp.height));
+  const W = Math.round(bmp.width * s), H = Math.round(bmp.height * s);
+  const c = new OffscreenCanvas(W, H), g = c.getContext('2d');
+  g.drawImage(bmp, 0, 0, W, H);
+  if (bmp.close) bmp.close();
+  const id = g.getImageData(0, 0, W, H);
+  return { w: W, h: H, d: id.data };
+}
+// Returns { blob } when the worker can encode, otherwise { raw } for the page to encode.
+async function encode(img, type, quality) {
+  if (OC) {
+    const c = new OffscreenCanvas(img.w, img.h);
+    c.getContext('2d').putImageData(new ImageData(img.d, img.w, img.h), 0, 0);
+    return { blob: await c.convertToBlob({ type, quality }) };
+  }
+  const buf = img.d.buffer.slice(0);
+  return { raw: { w: img.w, h: img.h, buf, type, quality }, transfer: [buf] };
+}
+function inset(q, f) {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  return q.map(p => [p[0] + (cx - p[0]) * f, p[1] + (cy - p[1]) * f]);
+}
+const fromRaw = r => ({ w: r.w, h: r.h, d: new Uint8ClampedArray(r.buf) });
+
+const H = {
+  caps() { return { oc: OC, png1: FB.canPNG1() }; },
+
+  detect(a) {
+    const r = FB.detect(fromRaw(a), { maxLines: 12 });
+    return { quad: r.quad, score: r.score };
+  },
+
+  async load(a) {
+    const img = a.blob ? await decode(a.blob) : fromRaw(a.raw);
+    const src = { img, mid: FB.resizeArea(img, 1700) };
+    srcs.set(a.id, src);
+    let quad = null, score = 0;
+    if (a.detect) {
+      const det = FB.detect(FB.resizeArea(img, 520));
+      score = det.score;
+      if (det.quad) quad = FB.refine(FB.resizeArea(img, 1000), det.quad);
+    }
+    return { w: img.w, h: img.h, quad, score };
+  },
+
+  rectify(a) {
+    const s = srcs.get(a.id);
+    if (!s) throw new Error('Image no longer loaded');
+    s.rect = FB.rectify(s.mid, inset(a.quad || FULL, 0.004), 1500, a.snap);
+    s.auto = FB.decideMode(s.rect).mode;
+    return { w: s.rect.w, h: s.rect.h, auto: s.auto };
+  },
+
+  async render(a) {
+    const s = srcs.get(a.id);
+    if (!s) throw new Error('Image no longer loaded');
+    let out;
+    if (a.mode === 'photo') out = FB.resizeArea(s.mid, a.maxSide);
+    else {
+      const base = FB.resizeArea(s.rect, a.maxSide);
+      out = FB.enhance(base, a.mode === 'auto' ? s.auto : a.mode, a.adjust || 0);
+    }
+    out = FB.rotate(out, a.rot || 0);
+    return encode(out, 'image/jpeg', 0.86);
+  },
+
+  blocks(a) {
+    const s = srcs.get(a.id);
+    if (!s) throw new Error('Image no longer loaded');
+    const q = a.quad || FULL;
+    const qpx = q.map(p => [p[0] * s.mid.w, p[1] * s.mid.h]);
+    const { W, H: Hh } = FB.outputSize(qpx, s.mid.w, s.mid.h, 1150, false);
+    const rect = FB.warp(s.mid, qpx, W, Hh);
+    const r = FB.findBlocks(rect);
+    return { W, H: Hh, blocks: r.blocks };
+  },
+
+  async final(a) {
+    const s = srcs.get(a.id);
+    if (!s) throw new Error('Image no longer loaded');
+    let out, used = a.mode;
+    if (a.mode === 'photo') {
+      out = FB.rotate(FB.resizeArea(s.img, a.maxSide), a.rot || 0);
+    } else {
+      let rect = FB.rectify(s.img, inset(a.quad || FULL, 0.004), a.maxSide, a.snap);
+      rect = FB.rotate(rect, a.rot || 0);
+      if (a.mode === 'auto') used = FB.decideMode(rect).mode;
+      out = FB.enhance(rect, used, a.adjust || 0);
+    }
+    let image, kind = 'jpeg';
+    if (used === 'bw' && FB.canPNG1()) {
+      const bytes = await FB.encodePNG1(out);
+      image = { blob: new Blob([bytes], { type: 'image/png' }) };
+      kind = 'png1';
+    } else image = await encode(out, 'image/jpeg', a.quality);
+    const thumb = await encode(FB.resizeArea(out, 420), 'image/jpeg', 0.78);
+    const orig = a.keepOriginal ? await encode(FB.resizeArea(s.img, 3200), 'image/jpeg', 0.86) : null;
+    const transfer = [].concat(image.transfer || [], thumb.transfer || [], (orig && orig.transfer) || []);
+    delete image.transfer; delete thumb.transfer; if (orig) delete orig.transfer;
+    return { image, thumb, orig, kind, w: out.w, h: out.h, modeUsed: used, transfer };
+  },
+
+  async rotateImage(a) {
+    const img = a.blob ? await decode(a.blob) : fromRaw(a.raw);
+    const out = FB.rotate(img, a.k);
+    let image, kind = a.kind;
+    if (kind === 'png1' && FB.canPNG1()) image = { blob: new Blob([await FB.encodePNG1(out)], { type: 'image/png' }) };
+    else { image = await encode(out, 'image/jpeg', a.quality); kind = 'jpeg'; }
+    const thumb = await encode(FB.resizeArea(out, 420), 'image/jpeg', 0.78);
+    const transfer = [].concat(image.transfer || [], thumb.transfer || []);
+    delete image.transfer; delete thumb.transfer;
+    return { image, thumb, kind, w: out.w, h: out.h, transfer };
+  },
+
+  release(a) { srcs.delete(a.id); return true; }
+};
+
+self.onmessage = async e => {
+  const { id, cmd, args } = e.data;
+  try {
+    const res = await H[cmd](args || {});
+    let transfer = [];
+    if (res && res.transfer) { transfer = res.transfer; delete res.transfer; }
+    else if (res && res.raw && res.raw.buf) transfer = [res.raw.buf];
+    self.postMessage({ id, ok: true, res }, transfer);
+  } catch (err) {
+    self.postMessage({ id, ok: false, err: (err && err.message) || String(err) });
+  }
+};
+})();
+
+</script>
+<script>
+(() => {
+'use strict';
+const FB = window.FB;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const FULL = [[0, 0], [1, 0], [1, 1], [0, 1]];
+
+/* ---------------------------------------------------------------- icons */
+const I = {
+  camera: '<path d="M4 8.5h3.2L9 6h6l1.8 2.5H20V19H4z"/><circle cx="12" cy="13.2" r="3.4"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 17.5l5-5 4 4 2.5-2.5 3.5 3.5"/>',
+  share: '<path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 12v7.5h14V12"/>',
+  download: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>',
+  rotR: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4.5H15"/>',
+  rotL: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4.5H9"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  next: '<path d="M9 5l7 7-7 7"/>',
+  more: '<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+  gear: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
+  flash: '<path d="M13 3L5.5 13.5h5.5L10 21l8-11h-5.5z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  crop: '<path d="M6.5 3v14.5H21"/><path d="M3 6.5h14.5V21"/>',
+  auto: '<path d="M11 3.5l1.7 4.3 4.3 1.7-4.3 1.7L11 15.5l-1.7-4.3L5 9.5l4.3-1.7z"/><path d="M17.5 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/>',
+  article: '<rect x="4" y="3.5" width="16" height="17" rx="1.5"/><path d="M7.5 7.5h9M7.5 11h3.5M7.5 14h3.5M7.5 17h3.5M13.5 11h3v6h-3z"/>',
+  expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  moveL: '<path d="M19 12H5M10 7l-5 5 5 5"/>',
+  moveR: '<path d="M5 12h14M14 7l5 5-5 5"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+  layers: '<path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/>',
+  eye: '<path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.8"/>',
+  doc: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',
+  dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/>',
+  backup: '<path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  restore: '<path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v4.5h4.5"/><path d="M12 8v4l3 2"/>',
+  install: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7M9 11.5l3 3 3-3"/>'
+};
+const icon = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${I[n] || ''}</svg>`;
+function paintIcons(root = document) { for (const el of $$('[data-icon]', root)) { if (!el.dataset.painted) { el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); el.dataset.painted = 1; } } }
+
+const ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="%R%" fill="#E2461E"/><g transform="translate(256 256) rotate(-6) translate(-256 -256)"><path d="M168 108h128l72 72v214a22 22 0 0 1-22 22H168a22 22 0 0 1-22-22V130a22 22 0 0 1 22-22z" fill="#FFFDF8"/><path d="M296 108v52a20 20 0 0 0 20 20h52z" fill="#F6C3AF"/><rect x="186" y="208" width="112" height="13" rx="6.5" fill="#C9C2B6"/><rect x="186" y="236" width="140" height="13" rx="6.5" fill="#C9C2B6"/><rect x="186" y="320" width="140" height="13" rx="6.5" fill="#C9C2B6"/><rect x="186" y="348" width="96" height="13" rx="6.5" fill="#C9C2B6"/></g><rect x="96" y="268" width="320" height="18" rx="9" fill="#16171B"/></svg>';
+function iconSVG(round = true) { return ICON_SVG.replace('%R%', round ? '112' : '0'); }
+function iconPNG(size, round) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = size;
+      c.getContext('2d').drawImage(img, 0, 0, size, size);
+      res(c.toDataURL('image/png'));
+    };
+    img.onerror = () => res('');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSVG(round));
+  });
+}
+
+/* ------------------------------------------------------------- storage */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('flatbed', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('docs', { keyPath: 'id' });
+        d.createObjectStore('pages', { keyPath: 'id' }).createIndex('docId', 'docId');
+        d.createObjectStore('blobs', { keyPath: 'id' });
+        d.createObjectStore('meta', { keyPath: 'k' });
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+      r.onblocked = () => rej(new Error('Storage is blocked by another tab'));
+    });
+  },
+  req(r) { return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  get(store, key) { return this.req(this.db.transaction(store).objectStore(store).get(key)); },
+  all(store) { return this.req(this.db.transaction(store).objectStore(store).getAll()); },
+  pagesOf(docId) { return this.req(this.db.transaction('pages').objectStore('pages').index('docId').getAll(docId)); },
+  write(ops) {
+    return new Promise((res, rej) => {
+      const stores = [...new Set(ops.map(o => o.store))];
+      if (!stores.length) return res();
+      const t = this.db.transaction(stores, 'readwrite');
+      for (const o of ops) { const s = t.objectStore(o.store); if (o.del) s.delete(o.del); else s.put(o.val); }
+      t.oncomplete = () => res();
+      t.onerror = t.onabort = () => rej(t.error || new Error('Could not save (storage full?)'));
+    });
+  },
+  async blob(id) { if (!id) return null; const r = await this.get('blobs', id); return r ? new Blob([r.data], { type: r.type }) : null; },
+  async blobRec(id, blob) { return { store: 'blobs', val: { id, type: blob.type, data: await blob.arrayBuffer() } }; }
+};
+
+const DEF = { mode: 'auto', review: true, autoCapture: true, hiRes: true, maxSide: 3000, quality: 0.82, keepOriginal: true, snap: true, pageSize: 'auto', camMode: 'doc', sound: true, theme: 'system' };
+const S = {
+  settings: { ...DEF }, view: 'library', selecting: false, selected: new Set(),
+  docId: null, pages: [], session: null, edit: null, viewer: 0,
+  chain: Promise.resolve(), pending: 0, installPrompt: null, urls: { lib: [], doc: [], cam: [], enh: [] }
+};
+async function loadSettings() { try { const r = await DB.get('meta', 'settings'); if (r) S.settings = { ...DEF, ...r.v }; } catch (e) {} applyTheme(); }
+function saveSettings() { DB.write([{ store: 'meta', val: { k: 'settings', v: S.settings } }]).catch(() => {}); applyTheme(); }
+function applyTheme() { const t = S.settings.theme; if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t; }
+const track = (bucket, url) => { S.urls[bucket].push(url); return url; };
+const revoke = bucket => { for (const u of S.urls[bucket]) URL.revokeObjectURL(u); S.urls[bucket] = []; };
+
+/* -------------------------------------------------------------- worker */
+const W = {
+  w: null, seq: 0, pend: new Map(), caps: { oc: false, png1: false },
+  async init() {
+    const src = $('#fb-core').textContent + '\n' + $('#fb-worker').textContent;
+    this.w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    this.w.onmessage = e => {
+      const { id, ok, res, err } = e.data, p = this.pend.get(id);
+      if (!p) return;
+      this.pend.delete(id);
+      ok ? p.res(res) : p.rej(new Error(err));
+    };
+    this.w.onerror = e => { for (const p of this.pend.values()) p.rej(new Error(e.message || 'Worker error')); this.pend.clear(); };
+    this.caps = await this.call('caps');
+  },
+  call(cmd, args = {}, transfer = []) {
+    const id = ++this.seq;
+    return new Promise((res, rej) => { this.pend.set(id, { res, rej }); this.w.postMessage({ id, cmd, args }, transfer); });
+  }
+};
+// Worker results are either a Blob or raw pixels for us to encode here.
+async function asBlob(r) {
+  if (!r) return null;
+  if (r.blob) return r.blob;
+  const { w, h, buf, type, quality } = r.raw;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(buf), w, h), 0, 0);
+  return new Promise(res => c.toBlob(res, type || 'image/jpeg', quality || 0.85));
+}
+async function decodeHere(blob, maxSide) {
+  let src;
+  try { src = await createImageBitmap(blob); }
+  catch (e) {
+    src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('Unsupported image')); im.src = URL.createObjectURL(blob); });
+  }
+  const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight, s = Math.min(1, maxSide / Math.max(sw, sh));
+  const w = Math.round(sw * s), h = Math.round(sh * s);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.drawImage(src, 0, 0, w, h);
+  return { w, h, buf: g.getImageData(0, 0, w, h).data.buffer };
+}
+async function loadSource(blob, detect) {
+  const id = uid(), args = { id, detect };
+  let transfer = [];
+  if (W.caps.oc) args.blob = blob;
+  else { args.raw = await decodeHere(blob, 4200); transfer = [args.raw.buf]; }
+  const r = await W.call('load', args, transfer);
+  return { id, ...r };
+}
+
+/* ------------------------------------------------------------------ ui */
+const show = v => { for (const s of $$('.view')) s.classList.toggle('on', s.id === 'v-' + v); S.view = v; };
+function nav(v) { show(v); if (v !== 'library' && !(history.state && history.state.fb)) history.pushState({ fb: 1 }, ''); }
+window.addEventListener('popstate', () => {
+  if (!$('#sheet-wrap').hidden) { closeSheet(); history.pushState({ fb: 1 }, ''); return; }
+  if (S.view !== 'library') { goBack(); if (S.view !== 'library') history.pushState({ fb: 1 }, ''); }
+});
+let toastTimer;
+function toast(msg, action, fn, ms = 3200) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button>${esc(action)}</button>` : '');
+  t.hidden = false;
+  if (action) t.querySelector('button').onclick = () => { t.hidden = true; fn(); };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? Math.max(ms, 7000) : ms);
+}
+function busy(text) { $('#busy-text').textContent = text || 'Working…'; $('#busy').hidden = !text; }
+let sheetClose = null;
+function openSheet(html, onClose) {
+  $('#sheet-body').innerHTML = html;
+  paintIcons($('#sheet-body'));
+  $('#sheet-wrap').hidden = false;
+  sheetClose = onClose || null;
+  return $('#sheet-body');
+}
+function closeSheet() { $('#sheet-wrap').hidden = true; $('#sheet-body').innerHTML = ''; const f = sheetClose; sheetClose = null; if (f) f(); }
+$('#sheet-backdrop').onclick = closeSheet;
+function confirmSheet(title, text, okLabel = 'Delete', danger = true) {
+  return new Promise(res => {
+    const b = openSheet(`<h2>${esc(title)}</h2><p class="lede">${esc(text)}</p><div class="btns"><button class="btn secondary" data-a="no">Cancel</button><button class="btn ${danger ? 'danger' : ''}" data-a="ok">${esc(okLabel)}</button></div>`, () => res(false));
+    b.querySelector('[data-a=no]').onclick = () => closeSheet();
+    b.querySelector('[data-a=ok]').onclick = () => { sheetClose = null; closeSheet(); res(true); };
+  });
+}
+function promptPassword(title, text) {
+  return new Promise(res => {
+    const b = openSheet(`<h2>${esc(title)}</h2><p class="lede">${esc(text)}</p><div class="pw"><input type="password" id="pp" autocomplete="off" placeholder="Password"></div><div class="btns"><button class="btn secondary" data-a="no">Cancel</button><button class="btn" data-a="ok">Unlock</button></div>`, () => res(null));
+    const inp = b.querySelector('#pp'); setTimeout(() => inp.focus(), 50);
+    const ok = () => { const v = inp.value; sheetClose = null; closeSheet(); res(v); };
+    inp.onkeydown = e => { if (e.key === 'Enter') ok(); };
+    b.querySelector('[data-a=no]').onclick = () => closeSheet();
+    b.querySelector('[data-a=ok]').onclick = ok;
+  });
+}
+const fmtDate = t => new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(t);
+const defaultTitle = () => 'Scan ' + new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(Date.now());
+const safeName = s => (s || 'scan').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'scan';
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+// Web Share with files. Long exports can outlive the tap that started them, in
+// which case the browser refuses and we offer a second tap.
+async function shareFiles(files, title) {
+  if (!(navigator.canShare && navigator.canShare({ files }))) return 'unsupported';
+  try { await navigator.share({ files, title }); return 'ok'; }
+  catch (e) {
+    if (e.name === 'AbortError') return 'ok';
+    if (e.name === 'NotAllowedError') {
+      return new Promise(res => toast('Ready to share', 'Share', async () => { try { await navigator.share({ files, title }); } catch (e2) {} res('ok'); }));
+    }
+    throw e;
+  }
+}
+async function shareOrSave(files, title) {
+  const r = await shareFiles(files, title);
+  if (r === 'unsupported') { for (const f of files) download(f, f.name); toast(files.length > 1 ? 'Sharing files isn’t supported here, so they were downloaded' : 'Sharing isn’t supported here, so it was downloaded'); }
+}
+
+/* ------------------------------------------------------------- library */
+async function renderLibrary() {
+  const docs = (await DB.all('docs')).sort((a, b) => b.updated - a.updated);
+  const q = $('#lib-q').value.trim().toLowerCase();
+  const list = docs.filter(d => !q || d.title.toLowerCase().includes(q));
+  revoke('lib');
+  const grid = $('#doc-grid');
+  grid.classList.toggle('selecting', S.selecting);
+  grid.innerHTML = list.map(d => `<button class="doc-card${S.selected.has(d.id) ? ' sel' : ''}" data-id="${d.id}"><div class="thumb"><img alt=""></div><span class="check">${icon('check')}</span><div><div class="t">${esc(d.title)}</div><div class="s">${d.pageIds.length} page${d.pageIds.length === 1 ? '' : 's'} · ${fmtDate(d.updated)}</div></div></button>`).join('');
+  $('#lib-empty').hidden = docs.length > 0;
+  for (const card of $$('.doc-card', grid)) {
+    const d = list.find(x => x.id === card.dataset.id);
+    attachLongPress(card, () => { if (!S.selecting) { S.selecting = true; S.selected.add(d.id); updateSelUI(); renderLibrary(); } });
+    card.onclick = () => {
+      if (card.dataset.lp) { delete card.dataset.lp; return; }
+      if (S.selecting) { S.selected.has(d.id) ? S.selected.delete(d.id) : S.selected.add(d.id); card.classList.toggle('sel'); updateSelUI(); }
+      else openDoc(d.id);
+    };
+    if (d.pageIds[0]) DB.get('pages', d.pageIds[0]).then(p => p && DB.blob(p.thumbId)).then(b => { if (b) card.querySelector('img').src = track('lib', URL.createObjectURL(b)); });
+  }
+}
+function attachLongPress(el, fn) {
+  let t, x0, y0;
+  el.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; t = setTimeout(() => { el.dataset.lp = 1; if (navigator.vibrate) navigator.vibrate(12); fn(); }, 480); });
+  el.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) clearTimeout(t); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, () => clearTimeout(t));
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+function updateSelUI() {
+  $('#lib-selbar').hidden = !S.selecting;
+  $('#lib-fabs').hidden = S.selecting;
+  $('#lib-select').textContent = S.selecting ? 'Done' : 'Select';
+  $('#lib-selcount').textContent = `${S.selected.size} selected`;
+  for (const id of ['sel-share', 'sel-export', 'sel-delete']) $('#' + id).disabled = !S.selected.size;
+  $('#sel-merge').disabled = S.selected.size < 2;
+}
+function endSelect() { S.selecting = false; S.selected.clear(); updateSelUI(); renderLibrary(); }
+$('#lib-select').onclick = () => { if (S.selecting) endSelect(); else { S.selecting = true; updateSelUI(); renderLibrary(); } };
+$('#lib-q').oninput = () => renderLibrary();
+$('#lib-scan').onclick = () => openCamera(null);
+$('#lib-import').onclick = () => pickFiles(null);
+$('#lib-settings').onclick = () => openSettings();
+async function selectedDocs() {
+  const all = await DB.all('docs');
+  return all.filter(d => S.selected.has(d.id)).sort((a, b) => a.created - b.created);
+}
+async function pagesFor(docs) {
+  const out = [];
+  for (const d of docs) for (const pid of d.pageIds) { const p = await DB.get('pages', pid); if (p) out.push(p); }
+  return out;
+}
+$('#sel-delete').onclick = async () => {
+  const docs = await selectedDocs();
+  if (!await confirmSheet(`Delete ${docs.length} document${docs.length > 1 ? 's' : ''}?`, 'Pages and originals are removed from this device. This can’t be undone.')) return;
+  for (const d of docs) await deleteDoc(d);
+  endSelect();
+};
+$('#sel-merge').onclick = async () => {
+  const docs = await selectedDocs();
+  if (docs.length < 2) return;
+  const [first, ...rest] = docs;
+  const ops = [];
+  for (const d of rest) {
+    for (const pid of d.pageIds) { const p = await DB.get('pages', pid); if (p) { p.docId = first.id; ops.push({ store: 'pages', val: p }); first.pageIds.push(pid); } }
+    ops.push({ store: 'docs', del: d.id });
+  }
+  first.updated = Date.now();
+  ops.push({ store: 'docs', val: first });
+  await DB.write(ops);
+  toast(`Merged into “${first.title}”`);
+  endSelect();
+};
+$('#sel-export').onclick = async () => { const docs = await selectedDocs(); exportSheet(await pagesFor(docs), docs.length === 1 ? docs[0].title : `${docs.length} documents`, docs); };
+$('#sel-share').onclick = async () => { const docs = await selectedDocs(); quickShare(await pagesFor(docs), docs.length === 1 ? docs[0].title : 'Scans'); };
+async function deleteDoc(d) {
+  const pages = await DB.pagesOf(d.id);
+  const ops = [{ store: 'docs', del: d.id }];
+  for (const p of pages) { ops.push({ store: 'pages', del: p.id }); for (const k of ['imgId', 'thumbId', 'origId']) if (p[k]) ops.push({ store: 'blobs', del: p[k] }); }
+  await DB.write(ops);
+}
+
+/* ------------------------------------------------------------- camera */
+const cam = { stream: null, track: null, ic: null, running: false, busy: false, smoothed: null, lastRaw: null, misses: 0, stableSince: 0, armed: true, lastShot: null, capturing: false, torch: false, lastDetect: 0 };
+const video = $('#cam-video'), overlay = $('#cam-overlay');
+const probe = document.createElement('canvas');
+const probeCtx = probe.getContext('2d', { willReadFrequently: true });
+
+async function openCamera(docId) {
+  S.session = { docId, fromCamera: true, count: 0 };
+  revoke('cam');
+  $('#cam-thumb img').removeAttribute('src');
+  $('#cam-count').textContent = '0';
+  $('#cam-thumb').classList.add('empty');
+  $('#cam-done').classList.remove('ready');
+  $('#cam-native-label').textContent = 'Use the phone\u2019s camera app';
+  $('#cam-error-done').hidden = true;
+  updateCamControls();
+  nav('camera');
+  await startStream();
+}
+function updateCamControls() {
+  for (const b of $$('#cam-mode button')) b.classList.toggle('on', b.dataset.m === S.settings.camMode);
+  $('#cam-auto').classList.toggle('on', S.settings.autoCapture);
+  $('#cam-batch').classList.toggle('on', !S.settings.review);
+}
+$('#cam-mode').onclick = e => { const m = e.target.closest('button'); if (!m) return; S.settings.camMode = m.dataset.m; saveSettings(); updateCamControls(); hint(); };
+$('#cam-auto').onclick = () => { S.settings.autoCapture = !S.settings.autoCapture; saveSettings(); updateCamControls(); toast(S.settings.autoCapture ? 'Auto capture on: hold steady over a page' : 'Auto capture off'); };
+$('#cam-batch').onclick = () => { S.settings.review = !S.settings.review; saveSettings(); updateCamControls(); toast(S.settings.review ? 'Review each page after capture' : 'Batch mode: pages are cropped and saved automatically'); };
+$('#cam-torch').onclick = async () => {
+  cam.torch = !cam.torch;
+  try { await cam.track.applyConstraints({ advanced: [{ torch: cam.torch }] }); } catch (e) { cam.torch = false; }
+  $('#cam-torch').classList.toggle('on', cam.torch);
+};
+$('#cam-close').onclick = () => goBack();
+$('#cam-shutter').onclick = () => capture(false);
+$('#cam-done').onclick = () => finishCamera();
+$('#cam-thumb').onclick = () => finishCamera();
+$('#cam-error-import').onclick = () => pickFiles(S.session ? S.session.docId : null);
+$('#cam-error-close').onclick = () => goBack();
+$('#cam-error-done').onclick = () => finishCamera();
+$('#cam-error-retry').onclick = () => startStream();
+$('#cam-error-open').onclick = () => { window.open(location.href.split('#')[0], '_blank', 'noopener'); };
+$('#cam-error-native').onclick = () => { const i = $('#native-cam'); i.value = ''; i.click(); };
+// The phone's own camera app, through a file input. Works where live camera
+// access is blocked (embedded viewers, file:// pages, in-app browsers).
+$('#native-cam').onchange = async () => {
+  const f = $('#native-cam').files[0];
+  if (!f) return;
+  if (!S.session) S.session = { docId: null, fromCamera: true, count: 0 };
+  const mode = S.settings.camMode;
+  try {
+    if (mode === 'photo') {
+      const src = await loadSource(f, false);
+      queueSave({ srcId: src.id, quad: null, mode: 'photo', adjust: 0, rot: 0 });
+    } else if (S.settings.review || mode === 'article') {
+      busy('Opening…');
+      await beginEdit(f, { article: mode === 'article' });
+      busy();
+    } else {
+      busy('Processing…');
+      const src = await loadSource(f, true);
+      await queueSave({ srcId: src.id, quad: src.quad, mode: S.settings.mode, adjust: 0, rot: 0 });
+      busy();
+    }
+  } catch (e) { busy(); toast('Couldn’t use that photo: ' + e.message); }
+};
+
+const UA = navigator.userAgent;
+const IS_IOS = /iP(hone|ad|od)/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IN_APP_BROWSER = /; wv\)|FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|Snapchat|Twitter/i.test(UA);
+function inFrame() { try { return window.self !== window.top; } catch (e) { return true; } }
+function policyBlocksCamera() {
+  const p = document.permissionsPolicy || document.featurePolicy;
+  try { return !!(p && p.allowsFeature && !p.allowsFeature('camera')); } catch (e) { return false; }
+}
+async function cameraPermission() {
+  try { return (await navigator.permissions.query({ name: 'camera' })).state; } catch (e) { return null; }
+}
+async function getStream() {
+  const tries = [
+    { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } } },
+    { audio: false, video: { facingMode: { ideal: 'environment' } } },
+    { audio: false, video: true }];
+  let last;
+  for (const c of tries) {
+    try { return await navigator.mediaDevices.getUserMedia(c); }
+    catch (e) {
+      last = e;
+      // Permission and security refusals won't change with other settings.
+      if (e.name === 'NotAllowedError' || e.name === 'SecurityError') throw e;
+    }
+  }
+  throw last;
+}
+
+async function startStream() {
+  $('#cam-error').hidden = true;
+  if (cam.stream) { resumeDetect(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) return explainCamError(null);
+  if (policyBlocksCamera()) return explainCamError({ name: 'NotAllowedError' });
+  hint('Starting camera…');
+  try {
+    cam.stream = await getStream();
+  } catch (e) {
+    return explainCamError(e);
+  }
+  if (S.view !== 'camera') { stopStream(); return; }
+  cam.track = cam.stream.getVideoTracks()[0];
+  video.srcObject = cam.stream;
+  try { await video.play(); } catch (e) {}
+  const caps = cam.track.getCapabilities ? cam.track.getCapabilities() : {};
+  $('#cam-torch').hidden = !caps.torch;
+  if (caps.focusMode && caps.focusMode.includes('continuous')) cam.track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+  cam.ic = null;
+  if ('ImageCapture' in window) { try { cam.ic = new ImageCapture(cam.track); } catch (e) {} }
+  resumeDetect();
+}
+function camError(title, msg, steps, opts = {}) {
+  $('#cam-error-title').textContent = title;
+  $('#cam-error-msg').textContent = msg;
+  const ol = $('#cam-error-steps');
+  ol.innerHTML = (steps || []).map(s => `<li>${esc(s)}</li>`).join('');
+  ol.hidden = !(steps && steps.length);
+  $('#cam-error-open').hidden = !opts.open;
+  $('#cam-error-retry').hidden = opts.retry === false;
+  $('#cam-error').hidden = false;
+}
+// Work out why live camera access failed and say what will fix it. A refusal
+// with no prompt almost always means the page is somewhere that blocks the
+// camera outright, rather than the person having said no.
+async function explainCamError(e) {
+  const httpish = /^https?:$/.test(location.protocol);
+  const name = e && e.name;
+  if (!window.isSecureContext || !httpish || !navigator.mediaDevices) {
+    return camError('Live camera needs a web address',
+      'This copy of Flatbed was opened as a file on the phone, and browsers only allow the live camera on pages served over https. You can still scan with the phone’s camera app below, and pages are cropped and cleaned up the same way.',
+      ['Put flatbed.html on an https host (GitHub Pages, Netlify and similar are free).', 'Open that address in Chrome or Safari, then allow the camera when asked.'],
+      { retry: false });
+  }
+  if (inFrame() || policyBlocksCamera()) {
+    return camError('This viewer blocks the camera',
+      'Flatbed is open inside another app’s page viewer, which doesn’t allow camera access, so the browser refuses without asking you.',
+      ['Tap “Open Flatbed in the browser”, or copy the page address into Chrome or Safari.', 'Allow the camera when the browser asks.'],
+      { open: true });
+  }
+  if (IN_APP_BROWSER && name === 'NotAllowedError') {
+    return camError('This in-app browser blocks the camera',
+      'The app you opened this link from shows web pages in its own browser, which doesn’t pass camera access through.',
+      ['Use its menu (⋮ or …) and choose “Open in Chrome” or “Open in Safari”.', 'Allow the camera when asked.'],
+      { open: true });
+  }
+  if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'NotSupportedError') {
+    const state = await cameraPermission();
+    const steps = IS_IOS ? [
+      'In Safari, tap the “aA” (or page menu) button in the address bar, then Website Settings.',
+      'Set Camera to Allow or Ask, then tap Try again.',
+      'If it’s still refused: iPhone Settings → Apps → Safari → Camera → Allow (or Settings → Screen Time → Content & Privacy Restrictions, if camera is restricted there).'
+    ] : [
+      'Tap the icon to the left of the web address (a padlock or sliders), then Permissions or Site settings.',
+      'Set Camera to Allow (or Reset permissions), then tap Try again.',
+      'If nothing changes, the browser itself may not have camera permission: phone Settings → Apps → Chrome (or your browser) → Permissions → Camera → Allow while using the app.'
+    ];
+    return camError(state === 'denied' ? 'Camera is switched off for this site' : 'The browser refused the camera',
+      state === 'denied' ? 'The browser remembers an earlier “Block” for this site, so it no longer asks.' : 'No permission prompt was shown, which usually means camera access is blocked in the browser or phone settings.',
+      steps);
+  }
+  if (name === 'NotReadableError' || name === 'AbortError') {
+    return camError('Camera is busy', 'Another app (a video call, the camera app, a screen recorder) may be holding the camera. Close it, then tap Try again.', null);
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return camError('No camera found', 'The browser didn’t report a usable camera on this device.', null);
+  }
+  return camError('Camera unavailable', `The camera couldn’t start (${(e && (e.name || e.message)) || 'unknown error'}).`, null);
+}
+function stopStream() {
+  cam.running = false;
+  if (cam.stream) for (const t of cam.stream.getTracks()) t.stop();
+  cam.stream = null; cam.track = null; cam.ic = null; cam.torch = false;
+  $('#cam-torch').classList.remove('on');
+  video.srcObject = null;
+}
+function resumeDetect() {
+  cam.smoothed = null; cam.lastRaw = null; cam.stableSince = 0; cam.misses = 0;
+  if (cam.running) return;
+  cam.running = true;
+  requestAnimationFrame(camLoop);
+}
+function pauseDetect() { cam.running = false; }
+function hint(text) {
+  if (text) { $('#cam-hint').textContent = text; return; }
+  const m = S.settings.camMode;
+  let t;
+  if (m === 'photo') t = 'Photo mode: saved as taken';
+  else if (!cam.smoothed) t = m === 'article' ? 'Frame the article, or the whole page' : 'Point at a document';
+  else if (!S.settings.autoCapture) t = 'Tap the shutter';
+  else if (!cam.armed) t = 'Move to the next page';
+  else t = 'Hold steady…';
+  $('#cam-hint').textContent = t;
+}
+function camLoop(ts) {
+  if (!cam.running || S.view !== 'camera') { cam.running = false; return; }
+  requestAnimationFrame(camLoop);
+  drawOverlay(ts);
+  if (cam.busy || !video.videoWidth || ts - cam.lastDetect < 70 || S.settings.camMode === 'photo') { if (S.settings.camMode === 'photo') { cam.smoothed = null; hint(); } return; }
+  cam.busy = true; cam.lastDetect = ts;
+  const vw = video.videoWidth, vh = video.videoHeight, s = 360 / Math.max(vw, vh);
+  probe.width = Math.round(vw * s); probe.height = Math.round(vh * s);
+  probeCtx.drawImage(video, 0, 0, probe.width, probe.height);
+  const d = probeCtx.getImageData(0, 0, probe.width, probe.height);
+  W.call('detect', { w: d.width, h: d.height, buf: d.data.buffer }, [d.data.buffer]).then(onDetect, () => {}).finally(() => { cam.busy = false; });
+}
+function onDetect(r) {
+  const now = performance.now();
+  if (!r.quad || r.score < 0.42) {
+    if (++cam.misses >= 3) { cam.smoothed = null; cam.lastRaw = null; cam.stableSince = 0; cam.armed = true; }
+  } else {
+    cam.misses = 0;
+    const q = r.quad;
+    const move = cam.lastRaw ? FB.maxCornerDist(q, cam.lastRaw) : 1;
+    cam.lastRaw = q;
+    if (!cam.smoothed || FB.maxCornerDist(q, cam.smoothed) > 0.08) cam.smoothed = q.map(p => p.slice());
+    else cam.smoothed = cam.smoothed.map((p, i) => [p[0] * 0.45 + q[i][0] * 0.55, p[1] * 0.45 + q[i][1] * 0.55]);
+    if (move > 0.015) cam.stableSince = now; else if (!cam.stableSince) cam.stableSince = now;
+    if (!cam.armed && cam.lastShot && FB.maxCornerDist(q, cam.lastShot) > 0.15) cam.armed = true;
+    if (S.settings.autoCapture && cam.armed && !cam.capturing && now - cam.stableSince > 1000 && r.score > 0.5) capture(true);
+  }
+  hint();
+}
+function contentRect(boxW, boxH, w, h, pad = 0) {
+  const s = Math.min((boxW - 2 * pad) / w, (boxH - 2 * pad) / h);
+  return { x: (boxW - w * s) / 2, y: (boxH - h * s) / 2, w: w * s, h: h * s, s };
+}
+function drawOverlay() {
+  const dpr = window.devicePixelRatio || 1, W0 = overlay.clientWidth, H0 = overlay.clientHeight;
+  if (overlay.width !== Math.round(W0 * dpr)) { overlay.width = Math.round(W0 * dpr); overlay.height = Math.round(H0 * dpr); }
+  const g = overlay.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W0, H0);
+  const sh = $('#cam-shutter');
+  const q = cam.smoothed;
+  if (!q || !video.videoWidth) { sh.style.setProperty('--p', 0); return; }
+  const r = contentRect(W0, H0, video.videoWidth, video.videoHeight);
+  const pts = q.map(p => [r.x + p[0] * r.w, r.y + p[1] * r.h]);
+  const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#E2461E';
+  g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+  g.fillStyle = 'rgba(226,70,30,0.16)'; g.fill();
+  g.lineWidth = 3; g.strokeStyle = acc; g.lineJoin = 'round'; g.stroke();
+  g.fillStyle = '#fff';
+  for (const p of pts) { g.beginPath(); g.arc(p[0], p[1], 6, 0, Math.PI * 2); g.fill(); g.lineWidth = 2.5; g.strokeStyle = acc; g.stroke(); }
+  const frac = S.settings.autoCapture && cam.armed && cam.stableSince ? clamp((performance.now() - cam.stableSince) / 1000, 0, 1) : 0;
+  sh.style.setProperty('--p', frac);
+}
+let audioCtx;
+function clickSound() {
+  if (!S.settings.sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const n = audioCtx.sampleRate * 0.06, b = audioCtx.createBuffer(1, n, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3) * 0.5;
+    const s = audioCtx.createBufferSource(); s.buffer = b; s.connect(audioCtx.destination); s.start();
+  } catch (e) {}
+}
+async function grabStill() {
+  if (S.settings.hiRes && cam.ic && cam.ic.takePhoto) {
+    try {
+      const b = await Promise.race([cam.ic.takePhoto(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))]);
+      if (b && b.size) return b;
+    } catch (e) { cam.ic = null; }
+  }
+  const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  c.getContext('2d').drawImage(video, 0, 0);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.93));
+}
+async function capture() {
+  if (cam.capturing || !cam.stream) return;
+  cam.capturing = true;
+  const fl = $('#cam-flash'); fl.classList.add('go'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('go')));
+  clickSound(); if (navigator.vibrate) navigator.vibrate(20);
+  const live = cam.smoothed ? cam.smoothed.map(p => p.slice()) : null;
+  const vAspect = video.videoWidth / video.videoHeight;
+  cam.lastShot = live; cam.armed = false; cam.stableSince = 0;
+  const mode = S.settings.camMode;
+  try {
+    const blob = await grabStill();
+    if (!blob) throw new Error('No image from camera');
+    if (mode === 'photo') {
+      const src = await loadSource(blob, false);
+      queueSave({ srcId: src.id, quad: null, mode: 'photo', adjust: 0, rot: 0 });
+    } else if (S.settings.review || mode === 'article') {
+      pauseDetect();
+      await beginEdit(blob, { hint: live, hintAspect: vAspect, article: mode === 'article' });
+    } else {
+      const src = await loadSource(blob, true);
+      const quad = src.quad || (live && Math.abs(src.w / src.h - vAspect) / vAspect < 0.03 ? live : null);
+      queueSave({ srcId: src.id, quad, mode: S.settings.mode, adjust: 0, rot: 0 });
+    }
+  } catch (e) { toast('Capture failed: ' + e.message); }
+  cam.capturing = false;
+  hint();
+}
+async function finishCamera() {
+  pauseDetect(); stopStream();
+  if (S.pending) { busy('Saving pages…'); await S.chain; busy(); }
+  const id = S.session && S.session.docId;
+  if (id) openDoc(id); else { show('library'); renderLibrary(); }
+}
+function bumpCameraThumb(thumbBlob) {
+  if (!S.session || !S.session.fromCamera) return;
+  S.session.count++;
+  $('#cam-count').textContent = S.session.count;
+  $('#cam-thumb').classList.remove('empty');
+  $('#cam-done').classList.add('ready');
+  if (thumbBlob) { revoke('cam'); $('#cam-thumb img').src = track('cam', URL.createObjectURL(thumbBlob)); }
+  const n = S.session.count;
+  $('#cam-native-label').textContent = 'Photograph the next page';
+  $('#cam-error-done').hidden = false;
+  $('#cam-error-done').textContent = `Done \u00b7 ${n} page${n === 1 ? '' : 's'} saved`;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (cam.stream) stopStream(); }
+  else if (S.view === 'camera') startStream();
+});
+
+/* ------------------------------------------------------------- saving */
+function queueSave(job) {
+  S.pending++;
+  job.docId = job.docId || (S.session && S.session.docId) || null;
+  const p = S.chain.then(() => doSave(job)).then(r => { bumpCameraThumb(r.thumb); return r; })
+    .catch(e => { toast('Couldn’t save page: ' + e.message); throw e; })
+    .finally(() => { S.pending--; });
+  S.chain = p.catch(() => {});
+  return p;
+}
+async function doSave(job) {
+  const st = S.settings;
+  const keepOriginal = st.keepOriginal && !(job.replacePage && job.replacePage.origId);
+  const r = await W.call('final', { id: job.srcId, quad: job.quad, mode: job.mode, adjust: job.adjust, rot: job.rot, maxSide: st.maxSide, quality: st.quality, keepOriginal, snap: st.snap });
+  const img = await asBlob(r.image), thumb = await asBlob(r.thumb), orig = r.orig ? await asBlob(r.orig) : null;
+  W.call('release', { id: job.srcId }).catch(() => {});
+  const now = Date.now(), ops = [];
+  let docId = job.docId || (S.session && S.session.docId);
+  let doc = docId ? await DB.get('docs', docId) : null;
+  if (!doc) doc = { id: uid(), title: defaultTitle(), created: now, updated: now, pageIds: [] };
+  const page = job.replacePage ? { ...job.replacePage } : { id: uid(), docId: doc.id, created: now };
+  if (job.replacePage) for (const k of ['imgId', 'thumbId']) if (page[k]) ops.push({ store: 'blobs', del: page[k] });
+  Object.assign(page, { imgId: uid(), thumbId: uid(), kind: r.kind, w: r.w, h: r.h, mode: job.mode, modeUsed: r.modeUsed, quad: job.quad, adjust: job.adjust, rot: job.rot, size: img.size, updated: now });
+  ops.push(await DB.blobRec(page.imgId, img), await DB.blobRec(page.thumbId, thumb));
+  if (orig) { page.origId = uid(); ops.push(await DB.blobRec(page.origId, orig)); }
+  ops.push({ store: 'pages', val: page });
+  if (!job.replacePage) doc.pageIds.push(page.id);
+  doc.updated = now;
+  ops.push({ store: 'docs', val: doc });
+  await DB.write(ops);
+  if (S.session && !S.session.docId) S.session.docId = doc.id;
+  if (navigator.storage && navigator.storage.persist && !S.askedPersist) { S.askedPersist = true; navigator.storage.persist().catch(() => {}); }
+  return { doc, page, thumb };
+}
+
+/* ------------------------------------------------------------ import */
+let pickTarget = null;
+function pickFiles(docId) {
+  const inp = $('#file-in');
+  inp.value = '';
+  pickTarget = docId;
+  inp.click();
+}
+$('#file-in').onchange = () => {
+  const inp = $('#file-in'), files = [...inp.files];
+  const target = pickTarget !== null ? pickTarget : (S.view === 'doc' ? S.docId : null);
+  pickTarget = null;
+  if (files.length) importFiles(files, target);
+};
+async function importFiles(files, docId) {
+  const imgs = files.filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(f.name));
+  if (!imgs.length) return toast('Choose image files to import');
+  if (S.view === 'camera') { pauseDetect(); stopStream(); }
+  S.session = { docId: docId || null, fromCamera: false, count: 0 };
+  if (imgs.length === 1 && S.settings.review) {
+    busy('Opening…');
+    try { await beginEdit(imgs[0], {}); } catch (e) { toast('Couldn’t open that image: ' + e.message); }
+    busy();
+    return;
+  }
+  for (let i = 0; i < imgs.length; i++) {
+    busy(`Processing ${i + 1} of ${imgs.length}…`);
+    try {
+      const src = await loadSource(imgs[i], true);
+      await queueSave({ srcId: src.id, quad: src.quad, mode: S.settings.mode, adjust: 0, rot: 0 });
+    } catch (e) { toast(`Skipped ${imgs[i].name}: ${e.message}`); }
+  }
+  busy();
+  if (S.session.docId) openDoc(S.session.docId);
+}
+
+/* --------------------------------------------------------------- crop */
+const CE = { stage: $('#crop-stage'), img: $('#crop-img'), svg: $('#crop-svg'), loupe: $('#crop-loupe'), rect: null, drag: null, article: null };
+async function beginEdit(blob, opt) {
+  const src = await loadSource(blob, true);
+  let quad = src.quad;
+  if (!quad && opt.hint && opt.hintAspect && Math.abs(src.w / src.h - opt.hintAspect) / opt.hintAspect < 0.03) quad = opt.hint;
+  if (S.edit && S.edit.url) URL.revokeObjectURL(S.edit.url);
+  S.edit = {
+    srcId: src.id, blob, url: URL.createObjectURL(blob), w: src.w, h: src.h, autoQuad: quad,
+    quad: opt.replacePage ? (opt.replacePage.quad || FULL) : (quad || FULL),
+    mode: opt.replacePage ? opt.replacePage.mode : null, adjust: opt.replacePage ? opt.replacePage.adjust || 0 : 0,
+    rot: opt.replacePage ? opt.replacePage.rot || 0 : 0, replacePage: opt.replacePage || null, found: !!quad
+  };
+  await openCrop(opt.article);
+}
+async function openCrop(article) {
+  const E = S.edit;
+  nav('crop');
+  $('#crop-artbar').hidden = true; $('#crop-tools').hidden = false; CE.article = null;
+  $('#crop-title').textContent = 'Adjust corners';
+  await new Promise(res => { CE.img.onload = res; CE.img.onerror = res; CE.img.src = E.url; });
+  layoutCrop();
+  if (!E.found && !E.replacePage && E.mode !== 'photo') toast('No edges found. Drag the corners or use Article.');
+  if (article) enterArticle();
+}
+function layoutCrop() {
+  if (S.view !== 'crop' || !S.edit) return;
+  const W0 = CE.stage.clientWidth, H0 = CE.stage.clientHeight;
+  const r = contentRect(W0, H0, S.edit.w, S.edit.h, 26);
+  CE.rect = r;
+  Object.assign(CE.img.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+  CE.svg.setAttribute('viewBox', `0 0 ${W0} ${H0}`);
+  drawCrop();
+}
+const toScreen = p => [CE.rect.x + p[0] * CE.rect.w, CE.rect.y + p[1] * CE.rect.h];
+const toNorm = (x, y) => [clamp((x - CE.rect.x) / CE.rect.w, 0, 1), clamp((y - CE.rect.y) / CE.rect.h, 0, 1)];
+function drawCrop() {
+  const E = S.edit, r = CE.rect;
+  if (!E || !r) return;
+  const W0 = CE.stage.clientWidth, H0 = CE.stage.clientHeight;
+  const pts = E.quad.map(toScreen);
+  const poly = pts.map(p => p.join(',')).join(' ');
+  let s = `<path d="M0 0H${W0}V${H0}H0Z M${pts.map(p => p.join(' ')).join('L')}Z" fill="rgba(0,0,0,.55)" fill-rule="evenodd"/>`;
+  if (CE.article) {
+    for (let i = 0; i < CE.article.polys.length; i++) {
+      const pp = CE.article.polys[i].map(toScreen).map(p => p.join(',')).join(' ');
+      const on = CE.article.sel.has(i);
+      s += `<polygon points="${pp}" fill="${on ? 'rgba(226,70,30,.38)' : 'rgba(255,255,255,.10)'}" stroke="${on ? '#FF6B40' : 'rgba(255,255,255,.7)'}" stroke-width="${on ? 2.5 : 1.2}" stroke-dasharray="${on ? '' : '4 3'}"/>`;
+    }
+    s += `<polygon points="${poly}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/>`;
+  } else {
+    s += `<polygon points="${poly}" fill="none" stroke="#FF6B40" stroke-width="2.5" stroke-linejoin="round"/>`;
+    for (let i = 0; i < 4; i++) {
+      const a = pts[i], b = pts[(i + 1) % 4], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+      s += `<rect x="${m[0] - 13}" y="${m[1] - 4}" width="26" height="8" rx="4" fill="#fff" stroke="#FF6B40" stroke-width="2" transform="rotate(${ang} ${m[0]} ${m[1]})"/>`;
+    }
+    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="11" fill="rgba(255,255,255,.25)" stroke="#fff" stroke-width="2.5"/><circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#FF6B40"/>`;
+  }
+  CE.svg.innerHTML = s;
+}
+function stagePoint(e) { const b = CE.stage.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
+CE.svg.addEventListener('pointerdown', e => {
+  const E = S.edit;
+  if (!E || !CE.rect) return;
+  const [x, y] = stagePoint(e);
+  if (CE.article) {
+    const n = toNorm(x, y);
+    for (let i = CE.article.polys.length - 1; i >= 0; i--) {
+      if (FB.pointInQuad(n[0], n[1], CE.article.polys[i])) { CE.article.sel.has(i) ? CE.article.sel.delete(i) : CE.article.sel.add(i); break; }
+    }
+    updateArticleBar(); drawCrop();
+    return;
+  }
+  const pts = E.quad.map(toScreen);
+  let best = -1, bd = 40;
+  pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) CE.drag = { type: 'corner', i: best, off: [pts[best][0] - x, pts[best][1] - y] };
+  else {
+    let be = -1, bed = 30;
+    for (let i = 0; i < 4; i++) {
+      const a = pts[i], b = pts[(i + 1) % 4], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const d = Math.hypot(m[0] - x, m[1] - y);
+      if (d < bed) { bed = d; be = i; }
+    }
+    if (be < 0) return;
+    CE.drag = { type: 'edge', i: be, last: [x, y], start: E.quad.map(p => p.slice()) };
+  }
+  CE.svg.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  onCropMove(e);
+});
+CE.svg.addEventListener('pointermove', e => { if (CE.drag) onCropMove(e); });
+const endDrag = () => { CE.drag = null; CE.loupe.style.display = 'none'; };
+CE.svg.addEventListener('pointerup', endDrag);
+CE.svg.addEventListener('pointercancel', endDrag);
+function onCropMove(e) {
+  const E = S.edit, D = CE.drag;
+  const [x, y] = stagePoint(e);
+  if (D.type === 'corner') {
+    const n = toNorm(x + D.off[0], y + D.off[1]);
+    const q = E.quad.map(p => p.slice()); q[D.i] = n;
+    if (FB.isConvex(q)) E.quad = q;
+    drawCrop(); drawLoupe(E.quad[D.i]);
+  } else {
+    const a = E.quad[D.i], b = E.quad[(D.i + 1) % 4];
+    const ex = (b[0] - a[0]) * CE.rect.w, ey = (b[1] - a[1]) * CE.rect.h, len = Math.hypot(ex, ey) || 1;
+    const nx = -ey / len, ny = ex / len;
+    const dx = x - D.last[0], dy = y - D.last[1], t = dx * nx + dy * ny;
+    D.last = [x, y];
+    const q = E.quad.map(p => p.slice());
+    for (const k of [D.i, (D.i + 1) % 4]) q[k] = [clamp(q[k][0] + nx * t / CE.rect.w, 0, 1), clamp(q[k][1] + ny * t / CE.rect.h, 0, 1)];
+    if (FB.isConvex(q)) E.quad = q;
+    drawCrop();
+  }
+}
+function drawLoupe(p) {
+  const L = CE.loupe, dpr = window.devicePixelRatio || 1, size = 124;
+  if (L.width !== size * dpr) { L.width = L.height = size * dpr; }
+  const [sx, sy] = toScreen(p);
+  let top = sy - size - 46;
+  if (top < 4) top = sy + 46;
+  let left = clamp(sx - size / 2, 4, CE.stage.clientWidth - size - 4);
+  Object.assign(L.style, { display: 'block', left: left + 'px', top: top + 'px' });
+  const g = L.getContext('2d');
+  const zoom = 3, nat = CE.img.naturalWidth / CE.rect.w;
+  const span = size / zoom * nat;
+  const cx = p[0] * CE.img.naturalWidth, cy = p[1] * CE.img.naturalHeight;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#000'; g.fillRect(0, 0, size, size);
+  g.drawImage(CE.img, cx - span / 2, cy - span / 2, span, span, 0, 0, size, size);
+  const k = size / span;
+  const pts = S.edit.quad.map(q => [(q[0] * CE.img.naturalWidth - cx) * k + size / 2, (q[1] * CE.img.naturalHeight - cy) * k + size / 2]);
+  g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
+  g.strokeStyle = '#FF6B40'; g.lineWidth = 1.5; g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(size / 2 - 9, size / 2); g.lineTo(size / 2 + 9, size / 2); g.moveTo(size / 2, size / 2 - 9); g.lineTo(size / 2, size / 2 + 9); g.stroke();
+}
+window.addEventListener('resize', () => { layoutCrop(); });
+$('#crop-auto').onclick = () => {
+  if (!S.edit.autoQuad) return toast('No document edges were found in this photo');
+  S.edit.quad = S.edit.autoQuad.map(p => p.slice()); drawCrop();
+};
+$('#crop-full').onclick = () => { S.edit.quad = FULL.map(p => p.slice()); drawCrop(); };
+$('#crop-article').onclick = () => enterArticle();
+$('#crop-back').onclick = () => goBack();
+$('#crop-next').onclick = () => openEnhance();
+async function enterArticle() {
+  const E = S.edit;
+  $('#crop-busy').hidden = false;
+  try {
+    const r = await W.call('blocks', { id: E.srcId, quad: E.quad });
+    const Hn = FB.homography([[0, 0], [r.W, 0], [r.W, r.H], [0, r.H]], E.quad);
+    const polys = r.blocks.map(b => [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]].map(p => FB.applyH(Hn, p[0] * r.W, p[1] * r.H)));
+    if (!polys.length) { toast('No text blocks found. Adjust the corners by hand.'); return; }
+    CE.article = { r, Hn, polys, sel: new Set(), baseQuad: E.quad.map(p => p.slice()) };
+    $('#crop-tools').hidden = true; $('#crop-artbar').hidden = false;
+    $('#crop-title').textContent = 'Pick the article';
+    updateArticleBar(); drawCrop();
+  } catch (e) { toast('Couldn’t analyse the page: ' + e.message); }
+  finally { $('#crop-busy').hidden = true; }
+}
+function updateArticleBar() {
+  const n = CE.article.sel.size;
+  $('#crop-arthint').textContent = n ? `${n} block${n > 1 ? 's' : ''} selected` : 'Tap the headline, columns and photos';
+  $('#crop-artuse').disabled = !n;
+}
+function exitArticle() { CE.article = null; $('#crop-tools').hidden = false; $('#crop-artbar').hidden = true; $('#crop-title').textContent = 'Adjust corners'; drawCrop(); }
+$('#crop-artcancel').onclick = () => exitArticle();
+$('#crop-artuse').onclick = () => {
+  const A = CE.article, bl = A.r.blocks;
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+  for (const i of A.sel) { const b = bl[i]; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+  const pad = 0.012;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(1, x1 + pad); y1 = Math.min(1, y1 + pad);
+  S.edit.quad = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(p => FB.applyH(A.Hn, p[0] * A.r.W, p[1] * A.r.H)).map(p => [clamp(p[0], 0, 1), clamp(p[1], 0, 1)]);
+  exitArticle();
+};
+
+/* ------------------------------------------------------------ enhance */
+const MODES = [['auto', 'Auto'], ['color', 'Colour'], ['gray', 'Greyscale'], ['bw', 'B&W'], ['none', 'Crop only'], ['photo', 'Original']];
+const MODE_NAME = Object.fromEntries(MODES);
+let enhSeq = 0, enhTimer;
+async function openEnhance() {
+  const E = S.edit;
+  nav('enhance');
+  revoke('enh');
+  $('#enh-img').removeAttribute('src');
+  $('#enh-busy').hidden = false;
+  if (E.mode == null) E.mode = S.settings.mode;
+  $('#enh-range').value = E.adjust;
+  $('#enh-filters').innerHTML = MODES.map(([m, label]) => `<button class="filter${m === E.mode ? ' on' : ''}" data-m="${m}"><div class="fthumb"><img alt=""></div>${label}${m === 'auto' ? '<small id="auto-res"></small>' : ''}</button>`).join('');
+  try {
+    const r = await W.call('rectify', { id: E.srcId, quad: E.quad, snap: S.settings.snap });
+    E.auto = r.auto;
+    $('#auto-res').textContent = MODE_NAME[r.auto];
+    syncAdjust();
+    await renderPreview();
+    for (const [m] of MODES) {
+      if (S.view !== 'enhance') break;
+      const t = await W.call('render', { id: E.srcId, mode: m, adjust: 0, maxSide: 220, rot: E.rot });
+      const b = await asBlob(t);
+      const img = $(`.filter[data-m="${m}"] img`);
+      if (img) img.src = track('enh', URL.createObjectURL(b));
+    }
+  } catch (e) { toast('Couldn’t process: ' + e.message); }
+}
+function resolvedMode() { const E = S.edit; return E.mode === 'auto' ? E.auto : E.mode; }
+function syncAdjust() {
+  const m = resolvedMode();
+  $('#enh-adjust').classList.toggle('off', m === 'none' || m === 'photo');
+  $('#enh-range-label').textContent = m === 'bw' ? 'Threshold' : 'Contrast';
+}
+async function renderPreview() {
+  const E = S.edit, seq = ++enhSeq;
+  $('#enh-busy').hidden = false;
+  const stage = $('#enh-stage');
+  const maxSide = Math.min(1500, Math.round(Math.max(stage.clientWidth, stage.clientHeight) * (window.devicePixelRatio || 1)));
+  try {
+    const r = await W.call('render', { id: E.srcId, mode: E.mode, adjust: E.adjust, maxSide, rot: E.rot });
+    const b = await asBlob(r);
+    if (seq !== enhSeq) return;
+    const old = $('#enh-img').src;
+    $('#enh-img').src = URL.createObjectURL(b);
+    if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+  } finally { if (seq === enhSeq) $('#enh-busy').hidden = true; }
+}
+$('#enh-filters').onclick = e => {
+  const b = e.target.closest('.filter'); if (!b) return;
+  S.edit.mode = b.dataset.m;
+  $$('.filter').forEach(x => x.classList.toggle('on', x === b));
+  syncAdjust(); renderPreview();
+};
+$('#enh-range').oninput = e => { S.edit.adjust = +e.target.value; clearTimeout(enhTimer); enhTimer = setTimeout(renderPreview, 120); };
+$('#enh-range').ondblclick = e => { e.target.value = 0; S.edit.adjust = 0; renderPreview(); };
+$('#enh-rotl').onclick = () => { S.edit.rot = (S.edit.rot + 3) % 4; renderPreview(); };
+$('#enh-rotr').onclick = () => { S.edit.rot = (S.edit.rot + 1) % 4; renderPreview(); };
+$('#enh-back').onclick = () => goBack();
+$('#enh-save').onclick = async () => {
+  const E = S.edit;
+  const job = { srcId: E.srcId, quad: E.mode === 'photo' ? null : E.quad, mode: E.mode, adjust: E.adjust, rot: E.rot, replacePage: E.replacePage };
+  S.edit = null;
+  const fromCam = S.session && S.session.fromCamera && !job.replacePage;
+  if (fromCam) {
+    queueSave(job);
+    show('camera'); revoke('enh');
+    await startStream();
+    return;
+  }
+  busy('Saving…');
+  try {
+    const r = await queueSave(job);
+    busy();
+    if (job.replacePage) { await openDoc(r.doc.id, true); openViewer(S.pages.findIndex(p => p.id === job.replacePage.id)); }
+    else openDoc(r.doc.id);
+  } catch (e) { busy(); }
+  revoke('enh');
+};
+
+/* ---------------------------------------------------------- document */
+async function openDoc(id, quiet) {
+  const doc = await DB.get('docs', id);
+  if (!doc) { show('library'); return renderLibrary(); }
+  S.docId = id;
+  S.pages = (await Promise.all(doc.pageIds.map(p => DB.get('pages', p)))).filter(Boolean);
+  $('#doc-title').value = doc.title;
+  const bytes = S.pages.reduce((a, p) => a + (p.size || 0), 0);
+  $('#doc-sub').textContent = `${S.pages.length} page${S.pages.length === 1 ? '' : 's'} · ${fmtSize(bytes)} · created ${fmtDate(doc.created)}`;
+  revoke('doc');
+  const grid = $('#page-grid');
+  grid.innerHTML = S.pages.map((p, i) => `<div class="pg" data-i="${i}"><img alt="Page ${i + 1}"><span class="n">${i + 1}</span></div>`).join('') + `<button class="pg-add" id="pg-add" aria-label="Add page">${icon('plus')}</button>`;
+  S.pages.forEach((p, i) => DB.blob(p.thumbId).then(b => { const im = grid.querySelector(`.pg[data-i="${i}"] img`); if (b && im) im.src = track('doc', URL.createObjectURL(b)); }));
+  $('#pg-add').onclick = () => openCamera(id);
+  for (const el of $$('.pg', grid)) setupPageTile(el);
+  if (!quiet || S.view !== 'doc') { nav('doc'); }
+}
+function fmtSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+// Tap opens the page; press and hold, then drag, reorders.
+function setupPageTile(el) {
+  let timer, dragging = false, ghost, x0, y0, startI;
+  el.addEventListener('pointerdown', e => {
+    x0 = e.clientX; y0 = e.clientY; startI = +el.dataset.i;
+    timer = setTimeout(() => {
+      dragging = true; if (navigator.vibrate) navigator.vibrate(12);
+      const r = el.getBoundingClientRect();
+      ghost = el.cloneNode(true); ghost.classList.add('ghost');
+      Object.assign(ghost.style, { width: r.width + 'px', height: r.height + 'px', left: r.left + 'px', top: r.top + 'px' });
+      document.body.appendChild(ghost);
+      el.classList.add('drag');
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    }, 380);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragging) { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 8) clearTimeout(timer); return; }
+    e.preventDefault();
+    ghost.style.transform = `translate(${e.clientX - x0}px, ${e.clientY - y0}px) scale(1.05)`;
+    const over = document.elementsFromPoint(e.clientX, e.clientY).find(n => n.classList && n.classList.contains('pg') && n !== el && !n.classList.contains('ghost'));
+    if (over) {
+      const grid = el.parentNode, tiles = $$('.pg:not(.ghost)', grid);
+      const oi = tiles.indexOf(over), ei = tiles.indexOf(el);
+      grid.insertBefore(el, oi > ei ? over.nextSibling : over);
+    }
+    const grid = el.parentNode, gb = grid.getBoundingClientRect();
+    if (e.clientY < gb.top + 40) grid.scrollTop -= 8; else if (e.clientY > gb.bottom - 40) grid.scrollTop += 8;
+  });
+  const up = async () => {
+    clearTimeout(timer);
+    if (!dragging) return;
+    dragging = false; ghost.remove(); el.classList.remove('drag');
+    el.dataset.lp = 1;
+    const order = $$('.pg', $('#page-grid')).map(t => S.pages[+t.dataset.i].id);
+    const doc = await DB.get('docs', S.docId);
+    if (order.join() !== doc.pageIds.join()) { doc.pageIds = order; doc.updated = Date.now(); await DB.write([{ store: 'docs', val: doc }]); await openDoc(S.docId, true); }
+  };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('click', () => { if (el.dataset.lp) { delete el.dataset.lp; return; } openViewer(+el.dataset.i); });
+}
+$('#doc-back').onclick = () => goBack();
+$('#doc-title').onchange = async e => {
+  const doc = await DB.get('docs', S.docId); if (!doc) return;
+  doc.title = e.target.value.trim() || doc.title; e.target.value = doc.title; doc.updated = Date.now();
+  await DB.write([{ store: 'docs', val: doc }]);
+};
+$('#doc-title').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+$('#doc-add').onclick = () => openCamera(S.docId);
+$('#doc-import').onclick = () => pickFiles(S.docId);
+$('#doc-share').onclick = () => quickShare(S.pages, $('#doc-title').value);
+$('#doc-export').onclick = () => exportSheet(S.pages, $('#doc-title').value);
+$('#doc-more').onclick = () => {
+  const b = openSheet(`<h2>${esc($('#doc-title').value)}</h2>
+    <button class="menu-item" data-a="rename">${icon('doc')}Rename</button>
+    <button class="menu-item" data-a="secure">${icon('lock')}Password-protected PDF</button>
+    <button class="menu-item danger" data-a="delete">${icon('trash')}Delete document</button>`);
+  b.onclick = async e => {
+    const a = e.target.closest('[data-a]'); if (!a) return;
+    if (a.dataset.a === 'rename') { closeSheet(); const t = $('#doc-title'); t.focus(); t.select(); }
+    if (a.dataset.a === 'secure') { closeSheet(); exportSheet(S.pages, $('#doc-title').value, null, { secure: true }); }
+    if (a.dataset.a === 'delete') {
+      closeSheet();
+      const doc = await DB.get('docs', S.docId);
+      if (await confirmSheet('Delete this document?', `“${doc.title}” and its ${doc.pageIds.length} page(s) will be removed from this device.`)) { await deleteDoc(doc); show('library'); renderLibrary(); }
+    }
+  };
+};
+
+/* ------------------------------------------------------------ viewer */
+async function openViewer(i) {
+  if (i < 0 || i >= S.pages.length) return;
+  S.viewer = i;
+  const p = S.pages[i];
+  $('#vw-title').textContent = `Page ${i + 1} of ${S.pages.length}`;
+  $('#vw-left').disabled = i === 0; $('#vw-right').disabled = i === S.pages.length - 1;
+  const b = await DB.blob(p.imgId);
+  const im = $('#vw-img'), old = im.src;
+  im.src = URL.createObjectURL(b);
+  if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+  if (S.view !== 'viewer') nav('viewer');
+}
+(() => {
+  let x0 = null;
+  const st = $('#vw-stage');
+  st.addEventListener('pointerdown', e => { x0 = e.clientX; });
+  st.addEventListener('pointerup', e => { if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 60) openViewer(S.viewer + (dx < 0 ? 1 : -1)); });
+})();
+$('#vw-back').onclick = () => goBack();
+$('#vw-delete').onclick = async () => {
+  const p = S.pages[S.viewer];
+  if (!await confirmSheet('Delete this page?', 'It will be removed from the document.')) return;
+  const doc = await DB.get('docs', S.docId);
+  doc.pageIds = doc.pageIds.filter(x => x !== p.id); doc.updated = Date.now();
+  const ops = [{ store: 'pages', del: p.id }];
+  for (const k of ['imgId', 'thumbId', 'origId']) if (p[k]) ops.push({ store: 'blobs', del: p[k] });
+  if (doc.pageIds.length) ops.push({ store: 'docs', val: doc }); else ops.push({ store: 'docs', del: doc.id });
+  await DB.write(ops);
+  if (!doc.pageIds.length) { show('library'); return renderLibrary(); }
+  await openDoc(S.docId, true);
+  openViewer(Math.min(S.viewer, S.pages.length - 1));
+};
+$('#vw-edit').onclick = async () => {
+  const p = S.pages[S.viewer];
+  if (!p.origId) return toast('The original photo wasn’t kept for this page, so only rotation is possible');
+  busy('Opening…');
+  try { S.session = { docId: S.docId, fromCamera: false }; await beginEdit(await DB.blob(p.origId), { replacePage: p }); }
+  catch (e) { toast(e.message); }
+  busy();
+};
+$('#vw-rot').onclick = async () => {
+  const p = S.pages[S.viewer];
+  busy('Rotating…');
+  try {
+    if (p.origId) {
+      const src = await loadSource(await DB.blob(p.origId), false);
+      await queueSave({ srcId: src.id, quad: p.quad, mode: p.mode, adjust: p.adjust || 0, rot: ((p.rot || 0) + 1) % 4, replacePage: p, docId: S.docId });
+    } else {
+      const blob = await DB.blob(p.imgId), args = { k: 1, kind: p.kind, quality: S.settings.quality };
+      let transfer = [];
+      if (W.caps.oc) args.blob = blob; else { args.raw = await decodeHere(blob, 8000); transfer = [args.raw.buf]; }
+      const r = await W.call('rotateImage', args, transfer);
+      const img = await asBlob(r.image), thumb = await asBlob(r.thumb);
+      const np = { ...p, imgId: uid(), thumbId: uid(), kind: r.kind, w: r.w, h: r.h, size: img.size, rot: ((p.rot || 0) + 1) % 4 };
+      await DB.write([{ store: 'blobs', del: p.imgId }, { store: 'blobs', del: p.thumbId }, await DB.blobRec(np.imgId, img), await DB.blobRec(np.thumbId, thumb), { store: 'pages', val: np }]);
+    }
+    await openDoc(S.docId, true); await openViewer(S.viewer);
+  } catch (e) { toast('Couldn’t rotate: ' + e.message); }
+  busy();
+};
+async function movePage(delta) {
+  const doc = await DB.get('docs', S.docId), i = S.viewer, j = i + delta;
+  if (j < 0 || j >= doc.pageIds.length) return;
+  [doc.pageIds[i], doc.pageIds[j]] = [doc.pageIds[j], doc.pageIds[i]];
+  doc.updated = Date.now();
+  await DB.write([{ store: 'docs', val: doc }]);
+  await openDoc(S.docId, true); openViewer(j);
+}
+$('#vw-left').onclick = () => movePage(-1);
+$('#vw-right').onclick = () => movePage(1);
+$('#vw-share').onclick = async () => {
+  const p = S.pages[S.viewer], b = await DB.blob(p.imgId);
+  const name = `${safeName($('#doc-title').value)}-p${S.viewer + 1}.${p.kind === 'png1' ? 'png' : 'jpg'}`;
+  await shareOrSave([new File([b], name, { type: b.type })], name);
+};
+
+/* ------------------------------------------------------------ export */
+async function pageFiles(pages, base) {
+  const out = [];
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i], b = await DB.blob(p.imgId);
+    out.push(new File([b], `${base}-p${String(i + 1).padStart(2, '0')}.${p.kind === 'png1' ? 'png' : 'jpg'}`, { type: b.type }));
+  }
+  return out;
+}
+async function makePDF(pages, title, opt) {
+  const list = [];
+  for (const p of pages) {
+    const b = await DB.blob(p.imgId);
+    let bytes = new Uint8Array(await b.arrayBuffer()), kind = p.kind;
+    if (kind !== 'png1' && kind !== 'jpeg') {
+      const c = await decodeHere(b, 10000), cv = document.createElement('canvas'); cv.width = c.w; cv.height = c.h;
+      cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(c.buf), c.w, c.h), 0, 0);
+      bytes = new Uint8Array(await (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.9))).arrayBuffer()); kind = 'jpeg';
+    }
+    list.push({ bytes, kind });
+  }
+  const pdf = await FB.buildPDF(list, { title, pageSize: opt.pageSize || S.settings.pageSize, password: opt.password || null });
+  return new File([pdf], safeName(title) + '.pdf', { type: 'application/pdf' });
+}
+async function quickShare(pages, title) {
+  if (!pages.length) return toast('Nothing to share yet');
+  busy('Preparing PDF…');
+  try { const f = await makePDF(pages, title, {}); busy(); await shareOrSave([f], title); }
+  catch (e) { busy(); toast('Share failed: ' + e.message); }
+}
+function randomPassword() {
+  const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(15));
+  let s = '';
+  for (let i = 0; i < 15; i++) { s += a[r[i] % a.length]; if (i % 5 === 4 && i < 14) s += '-'; }
+  return s;
+}
+function exportSheet(pages, title, docs, opt = {}) {
+  if (!pages.length) return toast('Nothing to export yet');
+  const X = { fmt: 'pdf', secure: !!opt.secure, zip: pages.length > 1 };
+  const b = openSheet(`<h2>Export</h2><p class="lede">${esc(title)} · ${pages.length} page${pages.length > 1 ? 's' : ''}</p>
+    <div class="segs" id="x-fmt"><button data-f="pdf" class="on">PDF</button><button data-f="img">Images</button></div>
+    <div id="x-pdf">
+      <div class="row"><div class="lbl"><b>Page size</b><small>Auto matches each scan’s shape</small></div>
+        <select id="x-size"><option value="auto">Auto</option><option value="a4">A4</option><option value="letter">US Letter</option></select></div>
+      <div class="row"><div class="lbl"><b>Password protect</b><small>AES-256. Opens in any PDF reader once the password is entered.</small></div>
+        <label class="switch"><input type="checkbox" id="x-secure"><span></span></label></div>
+      <div id="x-pwbox" hidden>
+        <div class="pw"><input type="password" id="x-pw" placeholder="Password" autocomplete="new-password"><button class="icon-btn" id="x-eye" aria-label="Show password">${icon('eye')}</button><button class="icon-btn" id="x-gen" aria-label="Suggest a password">${icon('dice')}</button></div>
+        <div class="note">Send the password by a different route from the file (say, a text if you email the PDF). There is no way to recover it.</div>
+      </div>
+    </div>
+    <div id="x-img" hidden>
+      <div class="row"><div class="lbl"><b>Bundle as ZIP</b><small>B&amp;W pages are PNG, others JPEG</small></div>
+        <label class="switch"><input type="checkbox" id="x-zip"><span></span></label></div>
+    </div>
+    <div class="btns"><button class="btn secondary" id="x-save">${icon('download')}Save</button><button class="btn" id="x-share">${icon('share')}Share</button></div>`);
+  const sz = b.querySelector('#x-size'); sz.value = S.settings.pageSize;
+  const sec = b.querySelector('#x-secure'), pw = b.querySelector('#x-pw'), zip = b.querySelector('#x-zip');
+  sec.checked = X.secure; zip.checked = X.zip; b.querySelector('#x-pwbox').hidden = !X.secure;
+  b.querySelector('#x-fmt').onclick = e => {
+    const f = e.target.closest('button'); if (!f) return;
+    X.fmt = f.dataset.f;
+    $$('#x-fmt button', b).forEach(x => x.classList.toggle('on', x === f));
+    b.querySelector('#x-pdf').hidden = X.fmt !== 'pdf'; b.querySelector('#x-img').hidden = X.fmt !== 'img';
+  };
+  sec.onchange = () => { b.querySelector('#x-pwbox').hidden = !sec.checked; if (sec.checked) setTimeout(() => pw.focus(), 50); };
+  b.querySelector('#x-eye').onclick = () => { pw.type = pw.type === 'password' ? 'text' : 'password'; };
+  b.querySelector('#x-gen').onclick = () => { pw.value = randomPassword(); pw.type = 'text'; };
+  const build = async () => {
+    const base = safeName(title);
+    if (X.fmt === 'pdf') {
+      if (sec.checked && !pw.value) { toast('Enter a password first'); return null; }
+      busy(sec.checked ? 'Encrypting PDF…' : 'Building PDF…');
+      try { return [await makePDF(pages, title, { pageSize: sz.value, password: sec.checked ? pw.value : null })]; }
+      finally { busy(); }
+    }
+    busy('Collecting images…');
+    try {
+      const files = await pageFiles(pages, base);
+      if (zip.checked && files.length > 1) {
+        const data = FB.zipStore(await Promise.all(files.map(async f => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) }))));
+        return [new File([data], base + '.zip', { type: 'application/zip' })];
+      }
+      return files;
+    } finally { busy(); }
+  };
+  b.querySelector('#x-save').onclick = async () => { try { const f = await build(); if (!f) return; closeSheet(); for (const x of f) download(x, x.name); } catch (e) { toast('Export failed: ' + e.message); } };
+  b.querySelector('#x-share').onclick = async () => { try { const f = await build(); if (!f) return; closeSheet(); await shareOrSave(f, title); } catch (e) { toast('Export failed: ' + e.message); } };
+}
+
+/* ---------------------------------------------------------- settings */
+async function openSettings() {
+  const st = S.settings;
+  const opt = (v, cur, label) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${label}</option>`;
+  const sw = (id, on) => `<label class="switch"><input type="checkbox" id="${id}"${on ? ' checked' : ''}><span></span></label>`;
+  const b = openSheet(`<h2>Settings</h2>
+    <div class="sheet-section">Scanning</div>
+    <div class="row"><div class="lbl"><b>Default look</b><small>Auto picks colour, greyscale or B&amp;W per page</small></div>
+      <select id="s-mode">${MODES.map(([m, l]) => opt(m, st.mode, l)).join('')}</select></div>
+    <div class="row"><div class="lbl"><b>Review each page</b><small>Off = batch mode: crop and save automatically</small></div>${sw('s-review', st.review)}</div>
+    <div class="row"><div class="lbl"><b>Auto capture</b><small>Shoots when the page is found and held steady</small></div>${sw('s-auto', st.autoCapture)}</div>
+    <div class="row"><div class="lbl"><b>Full-resolution photos</b><small>Uses the camera’s still mode where the browser allows</small></div>${sw('s-hires', st.hiRes)}</div>
+    <div class="row"><div class="lbl"><b>Snap to paper sizes</b><small>Squares up near-A4, Letter and Legal shapes</small></div>${sw('s-snap', st.snap)}</div>
+    <div class="row"><div class="lbl"><b>Shutter sound</b></div>${sw('s-sound', st.sound)}</div>
+    <div class="sheet-section">Storage and quality</div>
+    <div class="row"><div class="lbl"><b>Resolution</b><small>Longest side of saved pages</small></div>
+      <select id="s-res">${opt(2000, st.maxSide, 'Standard · 2000 px')}${opt(3000, st.maxSide, 'High · 3000 px')}${opt(4000, st.maxSide, 'Max · 4000 px')}</select></div>
+    <div class="row"><div class="lbl"><b>JPEG quality</b><small id="s-qv">${Math.round(st.quality * 100)}%. B&amp;W pages are lossless 1-bit PNG.</small></div>
+      <input type="range" id="s-q" min="0.5" max="0.95" step="0.01" value="${st.quality}"></div>
+    <div class="row"><div class="lbl"><b>Keep original photos</b><small>Lets you re-crop or change the look later. Roughly doubles storage.</small></div>${sw('s-orig', st.keepOriginal)}</div>
+    <div class="row"><div class="lbl"><b>PDF page size</b></div><select id="s-page">${opt('auto', st.pageSize, 'Auto')}${opt('a4', st.pageSize, 'A4')}${opt('letter', st.pageSize, 'US Letter')}</select></div>
+    <div class="row"><div class="lbl"><b>Theme</b></div><select id="s-theme">${opt('system', st.theme, 'System')}${opt('light', st.theme, 'Light')}${opt('dark', st.theme, 'Dark')}</select></div>
+    <div class="row"><div class="lbl"><b>On this device</b><small id="s-usage">Checking…</small><div class="meter"><i id="s-meter" style="width:0"></i></div></div></div>
+    <div class="sheet-section">Backup</div>
+    <button class="menu-item" id="s-backup">${icon('backup')}Export encrypted backup</button>
+    <button class="menu-item" id="s-restore">${icon('restore')}Restore from backup</button>
+    <div class="sheet-section">App</div>
+    <button class="menu-item" id="s-install" ${S.installPrompt ? '' : 'hidden'}>${icon('install')}Install Flatbed</button>
+    <button class="menu-item" id="s-pwa">${icon('download')}Offline install files</button>
+    <div class="note" id="s-pwa-note"></div>
+    <button class="menu-item danger" id="s-wipe">${icon('trash')}Delete all scans</button>`);
+  const bind = (id, key, conv = v => v) => { const el = b.querySelector('#' + id); el.onchange = () => { S.settings[key] = el.type === 'checkbox' ? el.checked : conv(el.value); saveSettings(); }; };
+  bind('s-mode', 'mode'); bind('s-review', 'review'); bind('s-auto', 'autoCapture'); bind('s-hires', 'hiRes'); bind('s-snap', 'snap'); bind('s-sound', 'sound');
+  bind('s-res', 'maxSide', Number); bind('s-orig', 'keepOriginal'); bind('s-page', 'pageSize'); bind('s-theme', 'theme');
+  const q = b.querySelector('#s-q');
+  q.oninput = () => { b.querySelector('#s-qv').textContent = `${Math.round(q.value * 100)}%. B&W pages are lossless 1-bit PNG.`; };
+  q.onchange = () => { S.settings.quality = +q.value; saveSettings(); };
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(async e => {
+      const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+      const el = b.querySelector('#s-usage'); if (!el) return;
+      el.textContent = `${fmtSize(e.usage || 0)} used of about ${fmtSize(e.quota || 0)} available${persisted ? ' · protected from automatic clean-up' : ''}`;
+      b.querySelector('#s-meter').style.width = Math.min(100, 100 * (e.usage || 0) / (e.quota || 1)) + '%';
+    });
+  } else b.querySelector('#s-usage').textContent = 'Not reported by this browser';
+  b.querySelector('#s-backup').onclick = () => { closeSheet(); backupSheet(); };
+  b.querySelector('#s-restore').onclick = () => { closeSheet(); const inp = $('#restore-in'); inp.value = ''; inp.click(); };
+  b.querySelector('#s-install').onclick = async () => { closeSheet(); if (S.installPrompt) { S.installPrompt.prompt(); S.installPrompt = null; $('#install-hint').hidden = true; } };
+  b.querySelector('#s-pwa').onclick = () => pwaFiles();
+  b.querySelector('#s-pwa-note').textContent = S.swActive ? 'Offline mode is active. ' : 'For offline use and a home-screen app, put these files next to this page on your web host. ';
+  b.querySelector('#s-wipe').onclick = async () => {
+    closeSheet();
+    if (!await confirmSheet('Delete every scan?', 'All documents, pages and originals on this device are erased. Export a backup first if you might want them.', 'Delete all')) return;
+    await DB.write((await DB.all('docs')).map(d => ({ store: 'docs', del: d.id })));
+    await DB.write((await DB.all('pages')).map(d => ({ store: 'pages', del: d.id })));
+    const ids = await DB.req(DB.db.transaction('blobs').objectStore('blobs').getAllKeys());
+    await DB.write(ids.map(id => ({ store: 'blobs', del: id })));
+    renderLibrary(); toast('All scans deleted');
+  };
+}
+function backupSheet() {
+  const b = openSheet(`<h2>Encrypted backup</h2><p class="lede">One file with every document, page and original. Restore it here or on another device.</p>
+    <div class="pw"><input type="password" id="b-pw" placeholder="Backup password" autocomplete="new-password"><button class="icon-btn" id="b-eye" aria-label="Show">${icon('eye')}</button><button class="icon-btn" id="b-gen" aria-label="Suggest">${icon('dice')}</button></div>
+    <div class="note">AES-256-GCM with a key stretched by 600,000 rounds of PBKDF2. Without the password the backup can’t be opened, by you or anyone else.</div>
+    <div class="row"><div class="lbl"><b>Skip encryption</b><small>Not recommended</small></div><label class="switch"><input type="checkbox" id="b-plain"><span></span></label></div>
+    <div class="btns"><button class="btn secondary" id="b-save">${icon('download')}Save</button><button class="btn" id="b-share">${icon('share')}Share</button></div>`);
+  const pw = b.querySelector('#b-pw');
+  b.querySelector('#b-eye').onclick = () => { pw.type = pw.type === 'password' ? 'text' : 'password'; };
+  b.querySelector('#b-gen').onclick = () => { pw.value = randomPassword(); pw.type = 'text'; };
+  const go = async share => {
+    const plain = b.querySelector('#b-plain').checked;
+    if (!plain && pw.value.length < 6) return toast('Use a password of at least 6 characters');
+    const pass = plain ? null : pw.value;
+    closeSheet();
+    busy('Packing backup…');
+    try {
+      const docs = await DB.all('docs'), pages = await DB.all('pages');
+      const blobs = [], index = {};
+      for (const p of pages) for (const k of ['imgId', 'thumbId', 'origId']) {
+        if (!p[k] || index[p[k]] != null) continue;
+        const r = await DB.get('blobs', p[k]); if (!r) continue;
+        index[p[k]] = blobs.length; blobs.push({ id: p[k], type: r.type, data: new Uint8Array(r.data) });
+      }
+      busy(pass ? 'Encrypting backup…' : 'Writing backup…');
+      const bytes = await FB.vaultPack({ app: 'flatbed', v: 1, created: Date.now(), docs, pages, blobs: blobs.map(x => ({ id: x.id, type: x.type })) }, blobs.map(x => x.data), pass);
+      const f = new File([bytes], `flatbed-backup-${new Date().toISOString().slice(0, 10)}.flatbed`, { type: 'application/octet-stream' });
+      busy();
+      if (share) await shareOrSave([f], 'Flatbed backup'); else download(f, f.name);
+    } catch (e) { busy(); toast('Backup failed: ' + e.message); }
+  };
+  b.querySelector('#b-save').onclick = () => go(false);
+  b.querySelector('#b-share').onclick = () => go(true);
+}
+$('#restore-in').onchange = () => { const f = $('#restore-in').files[0]; if (f) { closeSheet(); restoreBackup(f); } };
+async function restoreBackup(file) {
+  try {
+    const u = new Uint8Array(await file.arrayBuffer());
+    const enc = FB.vaultIsEncrypted(u);
+    if (enc === null) return toast('That isn’t a Flatbed backup');
+    let pass = null;
+    if (enc) { pass = await promptPassword('Unlock backup', file.name); if (pass == null) return; }
+    busy('Restoring…');
+    const { meta, blobs } = await FB.vaultUnpack(u, pass);
+    const remap = {}, nid = old => (remap[old] = remap[old] || uid());
+    const ops = [];
+    meta.blobs.forEach((b, i) => ops.push({ store: 'blobs', val: { id: nid(b.id), type: b.type, data: blobs[i].slice().buffer } }));
+    for (const p of meta.pages) {
+      const np = { ...p, id: nid(p.id), docId: nid(p.docId) };
+      for (const k of ['imgId', 'thumbId', 'origId']) if (p[k]) np[k] = nid(p[k]);
+      ops.push({ store: 'pages', val: np });
+    }
+    for (const d of meta.docs) ops.push({ store: 'docs', val: { ...d, id: nid(d.id), pageIds: d.pageIds.map(nid) } });
+    await DB.write(ops);
+    busy(); renderLibrary();
+    toast(`Restored ${meta.docs.length} document${meta.docs.length === 1 ? '' : 's'}`);
+  } catch (e) { busy(); toast(e.message === 'Wrong password' ? 'Wrong password' : 'Restore failed: ' + e.message); }
+}
+
+/* ---------------------------------------------------------------- PWA */
+function pageName() { const n = location.pathname.split('/').pop(); return n || 'index.html'; }
+function swSource(page) {
+  return `// Flatbed service worker: keeps the app available offline.
+const CACHE = 'flatbed-v1';
+const SHELL = ['./', ${JSON.stringify(page)}, 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  // Network first so updates arrive; the cache answers when offline.
+  e.respondWith(fetch(req).then(res => {
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+    return res;
+  }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || (req.mode === 'navigate' ? caches.match(${JSON.stringify(page)}) : undefined))));
+});
+`;
+}
+function manifestObj(page, icons) {
+  return {
+    name: 'Flatbed Scanner', short_name: 'Flatbed', description: 'Scan documents, letters and newspaper articles in the browser.',
+    id: './' + page, start_url: './' + page, scope: './', display: 'standalone', orientation: 'portrait',
+    background_color: '#F2EFE9', theme_color: '#E2461E', categories: ['productivity', 'utilities'],
+    icons
+  };
+}
+async function pwaFiles() {
+  busy('Preparing files…');
+  const page = pageName();
+  const dataToBytes = u => Uint8Array.from(atob(u.split(',')[1]), c => c.charCodeAt(0));
+  const i192 = await iconPNG(192, true), i512 = await iconPNG(512, true), im = await iconPNG(512, false);
+  const man = manifestObj(page, [
+    { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+    { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+    { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }]);
+  const zip = FB.zipStore([
+    { name: 'sw.js', data: FB.utf8(swSource(page)) },
+    { name: 'manifest.webmanifest', data: FB.utf8(JSON.stringify(man, null, 2)) },
+    { name: 'icon-192.png', data: dataToBytes(i192) },
+    { name: 'icon-512.png', data: dataToBytes(i512) },
+    { name: 'icon-maskable-512.png', data: dataToBytes(im) },
+    { name: 'README.txt', data: FB.utf8(`Put these files in the same folder as ${page} on an https web host (GitHub Pages, Netlify, Cloudflare Pages and similar all work).\nThen open the page on your phone and choose "Install" or "Add to Home screen".\n`) }]);
+  busy();
+  download(new Blob([zip], { type: 'application/zip' }), 'flatbed-offline-files.zip');
+}
+async function setupPWA() {
+  const fav = await iconPNG(64, true), touch = await iconPNG(180, false);
+  $('#favicon').href = fav; $('#touch-icon').href = touch;
+  $('#brand-mark').innerHTML = `<img src="${fav}" alt="">`;
+  const httpish = /^https?:$/.test(location.protocol);
+  let href = null;
+  if (httpish) {
+    try {
+      const r = await fetch('manifest.webmanifest', { cache: 'no-store' });
+      if (r.ok && !/html/.test(r.headers.get('content-type') || '')) href = 'manifest.webmanifest';
+    } catch (e) {}
+  }
+  if (!href) {
+    const base = location.href.split('#')[0].split('?')[0];
+    const m = manifestObj(pageName(), [{ src: await iconPNG(192, true), sizes: '192x192', type: 'image/png' }, { src: await iconPNG(512, true), sizes: '512x512', type: 'image/png' }]);
+    m.start_url = base; m.id = base; m.scope = new URL('./', base).href;
+    href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(m));
+  }
+  $('#manifest-link').href = href;
+  if ('serviceWorker' in navigator && window.isSecureContext && httpish) {
+    try {
+      const r = await fetch('sw.js', { method: 'HEAD', cache: 'no-store' });
+      if (r.ok && /javascript/.test(r.headers.get('content-type') || '')) { await navigator.serviceWorker.register('sw.js'); S.swActive = true; }
+    } catch (e) {}
+  }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; $('#install-hint').hidden = false; });
+  window.addEventListener('appinstalled', () => { $('#install-hint').hidden = true; S.installPrompt = null; });
+}
+$('#install-go').onclick = () => { if (S.installPrompt) { S.installPrompt.prompt(); S.installPrompt = null; } $('#install-hint').hidden = true; };
+
+/* ---------------------------------------------------------- back nav */
+function goBack() {
+  switch (S.view) {
+    case 'camera': return finishCamera();
+    case 'crop': {
+      const E = S.edit;
+      if (CE.article) return exitArticle();
+      if (E) { W.call('release', { id: E.srcId }).catch(() => {}); URL.revokeObjectURL(E.url); }
+      S.edit = null;
+      if (E && E.replacePage) { show('viewer'); return; }
+      if (S.session && S.session.fromCamera) { show('camera'); return startStream(); }
+      if (S.session && S.session.docId) return openDoc(S.session.docId);
+      show('library'); return renderLibrary();
+    }
+    case 'enhance': show('crop'); layoutCrop(); return;
+    case 'viewer': show('doc'); return openDoc(S.docId, true);
+    case 'doc': show('library'); return renderLibrary();
+  }
+}
+
+/* --------------------------------------------------------------- boot */
+async function boot() {
+  paintIcons();
+  updateSelUI();
+  try { await DB.open(); }
+  catch (e) { toast('Storage unavailable: ' + e.message + '. Scans can’t be saved in this mode.', null, null, 10000); }
+  await loadSettings();
+  try { await W.init(); }
+  catch (e) { toast('Background worker failed to start: ' + e.message, null, null, 10000); }
+  if (DB.db) renderLibrary();
+  setupPWA().catch(() => {});
+}
+boot();
+window.__flatbed = { S, DB, W, importFiles, openDoc, beginEdit, openEnhance };
+})();
+
+</script>
+</body>
+</html>
